@@ -67,6 +67,13 @@
   .add-row button{width:100%;font-size:11.5px;padding:5px;color:var(--ink-soft);border-style:dashed;}
   .add-cat-btn{margin:10px;width:calc(100% - 20px);}
 
+  .empty-hint{padding:8px 10px 8px 22px;font-size:11.5px;color:var(--ink-soft);font-style:italic;}
+  .cat-tag{font-size:9.5px;color:var(--ink-soft);background:#eceff2;border-radius:8px;padding:1px 6px;margin-left:6px;
+    font-style:normal;letter-spacing:.01em;white-space:nowrap;}
+  .category.unused-section{border-color:#e8dcc0;}
+  .category.unused-section .cat-head{background:#fbf6ea;}
+  .category.unused-section .name{color:#7a5c15;}
+
   #rightEmpty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--ink-soft);
     font-size:13px;text-align:center;padding:30px;}
 
@@ -245,14 +252,59 @@ function escapeHtml(s){
 /* ============================= RENDER: INPUT LIST ============================= */
 const inputCollapsed = new Set();
 const outputCollapsed = new Set();
+let unusedInputsCollapsed = false;
+
+function matchesInputFilter(it, filter){
+  return !filter || it.label.toLowerCase().includes(filter) || String(it.num).includes(filter);
+}
+
+function makeInputRow(it, cat, opts){
+  opts = opts || {};
+  const row = document.createElement('div');
+  row.className = 'row-item' + (it.notUsed?' notused':'') + (it.id===selectedInputId?' selected':'');
+  const n = countChecked(it.id);
+  row.innerHTML = `<span class="num">${it.num!=null?it.num:''}</span>
+    <span class="lbl">${escapeHtml(it.label)}${opts.showCat ? ` <span class="cat-tag">${escapeHtml(cat.name)}</span>` : ''}</span>
+    ${!it.notUsed && n>0 ? `<span class="badge">${n}</span>` : ''}
+    <span class="del" data-act="del" title="Delete">✕</span>`;
+  if(!it.notUsed){
+    row.addEventListener('click', (e)=>{
+      if(e.target.closest('[data-act="del"]')) return;
+      selectedInputId = it.id;
+      renderInputList();
+      renderOutputPanel();
+    });
+    row.querySelector('.lbl').addEventListener('dblclick', (e)=>{
+      e.stopPropagation();
+      const val = prompt('Edit input label:', it.label);
+      if(val!=null && val.trim()){ it.label = val.trim(); renderInputList(); if(selectedInputId===it.id) renderOutputPanel(); }
+    });
+  }
+  row.querySelector('[data-act="del"]').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    if(!confirm(`Delete input "${it.label}"?`)) return;
+    const idx = cat.items.findIndex(x=>x.id===it.id);
+    cat.items.splice(idx,1);
+    delete state.matrix[it.id];
+    if(selectedInputId===it.id) selectedInputId=null;
+    renderAll();
+  });
+  return row;
+}
 
 function renderInputList(){
   const wrap = document.getElementById('inputList');
   const filter = (document.getElementById('inputSearch').value||'').trim().toLowerCase();
   wrap.innerHTML = '';
+
+  const unusedPool = []; // {cat, item} — notUsed placeholders OR real inputs with 0 outputs currently selected
+
   state.inputCategories.forEach((cat, ci)=>{
-    const matchingItems = cat.items.filter(it => !filter || it.label.toLowerCase().includes(filter) || String(it.num).includes(filter));
-    if(filter && matchingItems.length===0) return;
+    const activeItems = cat.items.filter(it => !it.notUsed && countChecked(it.id) > 0);
+    cat.items.forEach(it=>{ if(it.notUsed || countChecked(it.id)===0) unusedPool.push({cat, item:it}); });
+
+    const matchingActive = activeItems.filter(it => matchesInputFilter(it, filter));
+    if(filter && matchingActive.length===0) return;
 
     const catDiv = document.createElement('div');
     catDiv.className = 'category';
@@ -262,7 +314,7 @@ function renderInputList(){
     const collapsed = inputCollapsed.has(ci);
     head.innerHTML = `<span class="tri">${collapsed?'▶':'▼'}</span>
       <span class="name" contenteditable="false">${escapeHtml(cat.name)}</span>
-      <span class="count">${cat.items.length}</span>
+      <span class="count">${activeItems.length}/${cat.items.length}</span>
       <button class="tiny" data-act="renamecat" title="Rename category">✎</button>
       <button class="tiny" data-act="delcat" title="Delete category">🗑</button>`;
     head.querySelector('.name').addEventListener('click', e=>{ e.stopPropagation(); });
@@ -287,38 +339,15 @@ function renderInputList(){
 
     const itemsWrap = document.createElement('div');
     itemsWrap.className = 'cat-items' + (collapsed?' collapsed':'');
-    (filter?matchingItems:cat.items).forEach((it)=>{
-      const row = document.createElement('div');
-      row.className = 'row-item' + (it.notUsed?' notused':'') + (it.id===selectedInputId?' selected':'');
-      const n = countChecked(it.id);
-      row.innerHTML = `<span class="num">${it.num!=null?it.num:''}</span>
-        <span class="lbl">${escapeHtml(it.label)}</span>
-        ${!it.notUsed && n>0 ? `<span class="badge">${n}</span>` : ''}
-        <span class="del" data-act="del" title="Delete">✕</span>`;
-      if(!it.notUsed){
-        row.addEventListener('click', (e)=>{
-          if(e.target.closest('[data-act="del"]')) return;
-          selectedInputId = it.id;
-          renderInputList();
-          renderOutputPanel();
-        });
-        row.querySelector('.lbl').addEventListener('dblclick', (e)=>{
-          e.stopPropagation();
-          const val = prompt('Edit input label:', it.label);
-          if(val!=null && val.trim()){ it.label = val.trim(); renderInputList(); if(selectedInputId===it.id) renderOutputPanel(); }
-        });
-      }
-      row.querySelector('[data-act="del"]').addEventListener('click', (e)=>{
-        e.stopPropagation();
-        if(!confirm(`Delete input "${it.label}"?`)) return;
-        const idx = cat.items.findIndex(x=>x.id===it.id);
-        cat.items.splice(idx,1);
-        delete state.matrix[it.id];
-        if(selectedInputId===it.id) selectedInputId=null;
-        renderAll();
-      });
-      itemsWrap.appendChild(row);
+    (filter?matchingActive:activeItems).forEach((it)=>{
+      itemsWrap.appendChild(makeInputRow(it, cat));
     });
+    if(activeItems.length===0 && !filter){
+      const hint = document.createElement('div');
+      hint.className = 'empty-hint';
+      hint.textContent = 'No active inputs — see "Unused inputs" below, or add one.';
+      itemsWrap.appendChild(hint);
+    }
 
     const addRow = document.createElement('div');
     addRow.className = 'add-row';
@@ -335,6 +364,29 @@ function renderInputList(){
     catDiv.appendChild(itemsWrap);
     wrap.appendChild(catDiv);
   });
+
+  // ---- Unused inputs: pooled across all categories, sorted by number ----
+  unusedPool.sort((a,b)=> (a.item.num||0) - (b.item.num||0));
+  const matchingUnused = unusedPool.filter(x => matchesInputFilter(x.item, filter));
+  if(matchingUnused.length){
+    const catDiv = document.createElement('div');
+    catDiv.className = 'category unused-section';
+    const head = document.createElement('div');
+    head.className = 'cat-head';
+    head.innerHTML = `<span class="tri">${unusedInputsCollapsed?'▶':'▼'}</span>
+      <span class="name">UNUSED INPUTS — AVAILABLE FOR FUTURE USE</span>
+      <span class="count">${matchingUnused.length}</span>`;
+    head.addEventListener('click', ()=>{ unusedInputsCollapsed = !unusedInputsCollapsed; renderInputList(); });
+    catDiv.appendChild(head);
+
+    const itemsWrap = document.createElement('div');
+    itemsWrap.className = 'cat-items' + (unusedInputsCollapsed?' collapsed':'');
+    matchingUnused.forEach(({cat,item})=>{
+      itemsWrap.appendChild(makeInputRow(item, cat, {showCat:true}));
+    });
+    catDiv.appendChild(itemsWrap);
+    wrap.appendChild(catDiv);
+  }
 }
 
 /* ============================= RENDER: OUTPUT PANEL ============================= */
