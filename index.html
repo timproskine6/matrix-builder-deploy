@@ -199,7 +199,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 33</span>
+    <span style="color:#c3c8ce;">· build 34</span>
   </footer>
 </div>
 
@@ -231,10 +231,12 @@ function loadState(data){
   state = deepClone(data);
   selectedInputId = null;
   bulkSelectedInputs.clear();
-  // The system-inputs category list loads fully rolled up — the user expands only the
-  // categories they need via the triangle arrow, rather than seeing every category open.
+  // The system-inputs category list loads mostly rolled up — only the categories named
+  // here start expanded; the rest (and any new/renamed categories) start collapsed, and the
+  // user expands them as needed via the triangle arrow.
+  const DEFAULT_EXPANDED_INPUT_CATS = ['ALARM INITIATING DEVICES', 'SUPERVISORY INITIATING DEVICES', 'TROUBLE CONDITIONS'];
   inputCollapsed.clear();
-  state.inputCategories.forEach((cat, ci)=> inputCollapsed.add(ci));
+  state.inputCategories.forEach((cat, ci)=>{ if(!DEFAULT_EXPANDED_INPUT_CATS.includes(cat.name)) inputCollapsed.add(ci); });
   unusedInputsCollapsed = true;
   renderAll();
 }
