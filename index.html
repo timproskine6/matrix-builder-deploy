@@ -199,7 +199,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 26</span>
+    <span style="color:#c3c8ce;">· build 27</span>
   </footer>
 </div>
 
@@ -296,17 +296,35 @@ function matchesInputFilter(it, filter){
   return !filter || it.label.toLowerCase().includes(filter) || String(it.num).includes(filter);
 }
 
+// On-screen display numbering is independent of the stored `item.num` (which is a fixed,
+// never-recalculated value used internally for sorting/filtering, and which develops gaps
+// once inputs are moved to the unused pool). For display, each category's active
+// (non-unused, has-at-least-one-output) inputs are numbered 1..N fresh, restarting per
+// category, so the visible badges always read as a clean local sequence. Returns null for
+// items that aren't currently "active" in any category (e.g. unused-pool items), so callers
+// can fall back to the stored item.num.
+function categoryDisplayNum(itemId){
+  for(const cat of state.inputCategories){
+    const activeItems = cat.items.filter(it => !it.notUsed && countChecked(it.id) > 0);
+    const idx = activeItems.findIndex(it => it.id === itemId);
+    if(idx >= 0) return idx + 1;
+  }
+  return null;
+}
+
 function makeInputRow(it, cat, opts){
   opts = opts || {};
   const row = document.createElement('div');
   row.className = 'row-item' + (it.notUsed?' notused':'') + (it.id===selectedInputId?' selected':'');
   const n = countChecked(it.id);
+  const displayNum = categoryDisplayNum(it.id);
+  const numLabel = displayNum!=null ? displayNum : (it.num!=null ? it.num : '');
   // .row-content is the visible, draggable surface; .row-swipe-bg sits behind it and is only
   // revealed while swiping left, so it never draws anything when the row is at rest.
   row.innerHTML = `<div class="row-swipe-bg">CLEAR OUTPUTS</div>
     <div class="row-content">
       ${!it.notUsed ? `<input type="checkbox" class="bulk-check" title="Select for bulk clear">` : `<span class="bulk-check-spacer"></span>`}
-      <span class="num">${it.num!=null?it.num:''}</span>
+      <span class="num">${numLabel}</span>
       <span class="lbl">${escapeHtml(it.label)}${opts.showCat ? ` <span class="cat-tag">${escapeHtml(cat.name)}</span>` : ''}</span>
       ${!it.notUsed && n>0 ? `<span class="badge">${n}</span>` : ''}
       <span class="del" data-act="del" title="Delete">✕</span>
@@ -524,7 +542,7 @@ function renderOutputPanel(){
   const { item: inputItem } = findInput(selectedInputId);
   empty.style.display='none'; bar.style.display='flex'; head.style.display='flex';
   searchWrap.style.display='block'; list.style.display='block'; addBtn.style.display='block';
-  document.getElementById('selectedInputLabel').textContent = `#${inputItem.num} ${inputItem.label}`;
+  { const d = categoryDisplayNum(inputItem.id); document.getElementById('selectedInputLabel').textContent = `#${d!=null?d:inputItem.num} ${inputItem.label}`; }
   const clearBtn = document.getElementById('btnClearInputOutputs');
   const n = countChecked(selectedInputId);
   clearBtn.disabled = n===0;
@@ -660,7 +678,7 @@ document.getElementById('btnReset').addEventListener('click', ()=>{
 document.getElementById('btnClearInputOutputs').addEventListener('click', ()=>{
   if(!selectedInputId) return;
   const found = findInput(selectedInputId);
-  const label = found ? `#${found.item.num} ${found.item.label}` : 'this input';
+  const label = found ? `#${(categoryDisplayNum(found.item.id)!=null?categoryDisplayNum(found.item.id):found.item.num)} ${found.item.label}` : 'this input';
   const n = countChecked(selectedInputId);
   if(n===0) return; // nothing to clear
   if(!confirm(`Turn off all ${n} output selection(s) for "${label}"? This clears every "On" and "Note" mark for this input across all output groups.`)) return;
