@@ -199,7 +199,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 44</span>
+    <span style="color:#c3c8ce;">· build 45</span>
   </footer>
 </div>
 
@@ -972,7 +972,9 @@ function buildMatrixPdf(){
     // row numbers + labels (this page's rows)
     page.rows.forEach((r,i)=>{
       const yc = rowCenterY(i);
-      text(X2+0.02, yc-textHRow*0.35, textHRow, 0, String(r.drawNum), false);
+      const numStr = String(r.drawNum);
+      const numW = pdfTextWidth(numStr, textHRow, false);
+      text(X2+(numColW-numW)/2, yc-textHRow*0.35, textHRow, 0, numStr, false);
       text(X3+0.03, yc-textHRow*0.35, textHRow, 0, r.item.label, false);
     });
     // column headers, bottom-anchored to a common baseline (identical on every page)
@@ -1338,7 +1340,9 @@ function buildDxf(){
   // ---- row numbers + labels ----
   inputRows.forEach((r,i)=>{
     const yc = rowCenterY(i);
-    dxf.text(X2+0.02, yc-textHRow*0.35, textHRow, 0, String(r.drawNum), LAYER_TEXT);
+    const numStr = String(r.drawNum);
+    const numW = numStr.length*textHRow*charW;
+    dxf.text(X2+(numColW-numW)/2, yc-textHRow*0.35, textHRow, 0, numStr, LAYER_TEXT);
     dxf.text(X3+0.03, yc-textHRow*0.35, textHRow, 0, r.item.label, LAYER_TEXT);
   });
 
