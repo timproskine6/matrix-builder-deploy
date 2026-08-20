@@ -199,7 +199,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 38</span>
+    <span style="color:#c3c8ce;">· build 39</span>
   </footer>
 </div>
 
@@ -968,11 +968,11 @@ function buildMatrixPdf(){
     // row numbers + labels (this page's rows)
     page.rows.forEach((r,i)=>{
       const yc = rowCenterY(i);
-      text(X2+0.04, yc-textHRow*0.35, textHRow, 0, String(r.drawNum), false);
-      text(X3+0.06, yc-textHRow*0.35, textHRow, 0, r.item.label, false);
+      text(X2+0.02, yc-textHRow*0.35, textHRow, 0, String(r.drawNum), false);
+      text(X3+0.03, yc-textHRow*0.35, textHRow, 0, r.item.label, false);
     });
     // column headers, bottom-anchored to a common baseline (identical on every page)
-    outputCols.forEach((c,j)=>{ text(colCenterX(j)+textHCol*capHRatio*0.5, Y1+0.06, textHCol, 90, c.item.label, false); });
+    outputCols.forEach((c,j)=>{ text(colCenterX(j)+textHCol*capHRatio*0.5, Y1+0.03, textHCol, 90, c.item.label, false); });
 
     // marks
     page.rows.forEach((r,i)=>{
@@ -1330,8 +1330,8 @@ function buildDxf(){
   // ---- row numbers + labels ----
   inputRows.forEach((r,i)=>{
     const yc = rowCenterY(i);
-    dxf.text(X2+0.04, yc-textHRow*0.35, textHRow, 0, String(r.drawNum), LAYER_TEXT);
-    dxf.text(X3+0.06, yc-textHRow*0.35, textHRow, 0, r.item.label, LAYER_TEXT);
+    dxf.text(X2+0.02, yc-textHRow*0.35, textHRow, 0, String(r.drawNum), LAYER_TEXT);
+    dxf.text(X3+0.03, yc-textHRow*0.35, textHRow, 0, r.item.label, LAYER_TEXT);
   });
 
   // ---- column headers (vertical, single line, bottom-to-top) ----
@@ -1340,7 +1340,7 @@ function buildDxf(){
   // upward — short ones leave empty space at the top, long ones reach further up.
   outputCols.forEach((c,j)=>{
     const xc = colCenterX(j);
-    const y = Y1 + 0.06;
+    const y = Y1 + 0.03;
     dxf.text(xc+textHCol*0.35, y, textHCol, 90, c.item.label, LAYER_TEXT);
   });
 
