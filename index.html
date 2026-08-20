@@ -199,7 +199,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 43</span>
+    <span style="color:#c3c8ce;">· build 44</span>
   </footer>
 </div>
 
@@ -829,8 +829,12 @@ function buildMatrixPdf(){
   // ---- geometry, in inches — same overall layout as Export DXF, but sizing/centering here uses
   // real Helvetica glyph metrics (pdfTextWidth) instead of a flat charWidth average, since the PDF
   // is guaranteed to render in actual Helvetica on every compliant viewer ----
-  const rowH=0.13, colW=0.24, numColW=0.30, textHRow=0.09, textHCol=0.10, textHCat=0.085, textHTitle=0.20;
+  const rowH=0.13, colW=0.24, textHRow=0.09, textHCol=0.10, textHCat=0.085, textHTitle=0.20;
   const capHRatio = 0.718; // Helvetica cap height, used to vertically center rotated single-line text
+  // number column is sized to snugly fit the longest row number (e.g. "34"), not a flat guess —
+  // otherwise short numbers leave a wide dead gap before the label column's dividing line.
+  const maxNumW = Math.max(...inputRows.map(r=>pdfTextWidth(String(r.drawNum), textHRow, false)));
+  const numColW = maxNumW + 0.05;
   const maxLabelW = Math.max(...inputRows.map(r=>pdfTextWidth(r.item.label, textHRow, false)));
   const labelColW = Math.min(7.5, Math.max(2.2, maxLabelW + 0.3));
   const maxHeaderW = Math.max(...outputCols.map(c=>pdfTextWidth(c.item.label, textHCol, false)));
@@ -1205,7 +1209,6 @@ function buildDxf(){
   // ---- sizing constants (inches) ----
   const rowH = 0.13;
   const colW = 0.24;
-  const numColW = 0.30;
   const textHRow = 0.09;      // row number / row label text height
   const textHCol = 0.10;      // column header text height (must be < colW)
   const textHCat = 0.085;     // category label text height
@@ -1217,6 +1220,11 @@ function buildDxf(){
   // rendered width. Every text placement below also uses this same constant, so sizing and
   // positioning stay self-consistent even though it's oversized.
   const charW = 0.85;
+
+  // number column is sized to snugly fit the longest row number (e.g. "34"), not a flat guess —
+  // otherwise short numbers leave a wide dead gap before the label column's dividing line.
+  const maxNumLen = String(numRows).length;
+  const numColW = maxNumLen*textHRow*charW + 0.05;
 
   // dynamic label column width from longest input label
   const maxLabelLen = Math.max(10, ...inputRows.map(r=>r.item.label.length));
