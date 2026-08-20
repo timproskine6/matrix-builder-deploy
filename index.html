@@ -199,7 +199,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 39</span>
+    <span style="color:#c3c8ce;">· build 40</span>
   </footer>
 </div>
 
@@ -829,12 +829,12 @@ function buildMatrixPdf(){
   // ---- geometry, in inches — same overall layout as Export DXF, but sizing/centering here uses
   // real Helvetica glyph metrics (pdfTextWidth) instead of a flat charWidth average, since the PDF
   // is guaranteed to render in actual Helvetica on every compliant viewer ----
-  const rowH=0.22, colW=0.24, numColW=0.30, textHRow=0.09, textHCol=0.10, textHCat=0.085, textHTitle=0.20;
+  const rowH=0.13, colW=0.24, numColW=0.30, textHRow=0.09, textHCol=0.10, textHCat=0.085, textHTitle=0.20;
   const capHRatio = 0.718; // Helvetica cap height, used to vertically center rotated single-line text
   const maxLabelW = Math.max(...inputRows.map(r=>pdfTextWidth(r.item.label, textHRow, false)));
   const labelColW = Math.min(7.5, Math.max(2.2, maxLabelW + 0.3));
   const maxHeaderW = Math.max(...outputCols.map(c=>pdfTextWidth(c.item.label, textHCol, false)));
-  const headerBandH = Math.min(9.0, Math.max(1.6, maxHeaderW + 0.5));
+  const headerBandH = Math.min(9.0, Math.max(1.6, maxHeaderW + 0.08));
   let rowCatColW = 0.5;
   inCats.forEach(cat=>{
     const bandLen = Math.max(rowH, cat.items.length*rowH) - 0.06;
@@ -1203,7 +1203,7 @@ function buildDxf(){
   if(numRows===0 || numCols===0){ alert('Add at least one input with at least one output selected (and at least one output) before exporting.'); return null; }
 
   // ---- sizing constants (inches) ----
-  const rowH = 0.22;
+  const rowH = 0.13;
   const colW = 0.24;
   const numColW = 0.30;
   const textHRow = 0.09;      // row number / row label text height
@@ -1224,7 +1224,7 @@ function buildDxf(){
 
   // dynamic header band height from longest output label
   const maxHeaderLen = Math.max(10, ...outputCols.map(c=>c.item.label.length));
-  const headerBandH = Math.min(9.0, Math.max(1.6, maxHeaderLen*textHCol*charW + 0.5));
+  const headerBandH = Math.min(9.0, Math.max(1.6, maxHeaderLen*textHCol*charW + 0.08));
 
   // dynamic row-category band width (wrap category names to fit each category's row-height span)
   let rowCatColW = 0.5;
