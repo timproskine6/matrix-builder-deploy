@@ -118,8 +118,11 @@
 
   table.gridtable{border-collapse:collapse;font-size:10px;}
   table.gridtable th, table.gridtable td{border:1px solid #333;padding:0;text-align:center;}
-  table.gridtable td.datacell{width:22px;min-width:22px;height:14px;max-height:14px;}
-  table.gridtable td.rownum, table.gridtable td.rowlabel{height:14px;max-height:14px;}
+  /* Row height here tracks the PDF/DXF export's rowH (0.233in, up from 0.13in — a ~1.79x growth
+     when build 64 made rowH match the column header's own text-to-line gap) so this read-only
+     preview's proportions stay consistent with the real drawing: 14px * (0.233/0.13) ≈ 25px. */
+  table.gridtable td.datacell{width:22px;min-width:22px;height:25px;max-height:25px;}
+  table.gridtable td.rownum, table.gridtable td.rowlabel{height:25px;max-height:25px;}
   table.gridtable td.datacell .dotmark{width:9px;height:9px;border-radius:50%;background:#111;margin:0 auto;}
   table.gridtable td.datacell .notemark{font-size:9px;color:var(--note);font-weight:700;}
   table.gridtable td.datacell.nu, table.gridtable th.nu{background:repeating-linear-gradient(45deg,#f4f4f4,#f4f4f4 4px,#ececec 4px,#ececec 8px);}
@@ -213,7 +216,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 66</span>
+    <span style="color:#c3c8ce;">· build 67</span>
   </footer>
 </div>
 
@@ -1152,7 +1155,7 @@ function renderMatrixPreview(){
       if(i===0){
         // Height must be at least tall enough to fit the category's single longest word without
         // slicing it mid-word (it wraps at spaces only), and at least the natural row-count height.
-        const naturalH = cat.items.length * 14;
+        const naturalH = cat.items.length * 25;
         const words = cat.name.split(/\s+/).filter(Boolean);
         const longestWordPx = words.length ? Math.max(...words.map(w=>measureTextWidth(w, '700 10.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif'))) : 0;
         const catH = Math.max(naturalH, Math.ceil(longestWordPx) + 10);
@@ -1191,6 +1194,13 @@ function renderMatrixPreview(){
     const w = th ? th.getBoundingClientRect().width : 0;
     return wrapLabel(c.name, measureCat, Math.max(10, w - 10));
   });
+  // Mirror the PDF/DXF exporters' one exception to "always wrap": the LAST category, if it would
+  // need more than 2 lines, is instead drawn as a single line that's allowed to spill rightward
+  // past its own band — there's nothing after the last category to collide with (blank scroll area
+  // only), same reasoning the exporters use for extending their outer frame past the real grid.
+  const lastIdx = outCats.length - 1;
+  const lastSpills = lastIdx >= 0 && catLines[lastIdx].length > 2;
+  if(lastSpills) catLines[lastIdx] = [outCats[lastIdx].name];
   const lineH = 13; // px per wrapped line, matches .colcatOverlay's line-height at font-size 10.5px
   const maxLines = Math.max(1, ...catLines.map(ls=>ls.length));
   const colcatH = Math.max(22, maxLines*lineH + 10);
@@ -1209,10 +1219,17 @@ function renderMatrixPreview(){
     const top = r.top - hostRect.top + host.scrollTop;
     const ov = document.createElement('div');
     ov.className = 'colcatOverlay';
-    ov.style.left = left + 'px';
     ov.style.top = top + 'px';
-    ov.style.width = r.width + 'px';
     ov.style.height = r.height + 'px';
+    if(ci === lastIdx && lastSpills){
+      // Single line, free to grow past the band's right edge instead of being clipped to r.width.
+      ov.style.left = left + 'px';
+      ov.style.width = 'max-content';
+      ov.style.justifyContent = 'flex-start';
+    } else {
+      ov.style.left = left + 'px';
+      ov.style.width = r.width + 'px';
+    }
     ov.innerHTML = catLines[ci].map(escapeHtml).join('<br>');
     host.appendChild(ov);
   });
