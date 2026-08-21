@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 72</span>
+    <span style="color:#c3c8ce;">· build 74</span>
   </footer>
 </div>
 
@@ -927,8 +927,13 @@ function buildMatrixPdf(){
       accCols += cat.items.length;
     });
   }
-  const sysInputsBandW = 0.34, sysOutputsBandH = 0.40;
-  const X0=0, X1=X0+sysInputsBandW, X2=X1+rowCatColW, X3=X2+numColW, X4=X3+labelColW;
+  const sysOutputsBandH = 0.40;
+  // SYSTEM INPUTS sits in a horizontal title band directly above the row list (see Y1i below),
+  // mirroring how SYSTEM OUTPUTS sits in a horizontal band above the column list, rather than
+  // occupying its own dedicated vertical strip down the left edge — so there's no separate
+  // "sysInputsBandW" column reserved here any more; the row-category band starts right at X0.
+  const sysInputsBandH = 0.40;
+  const X0=0, X1=X0+rowCatColW, X2=X1+numColW, X3=X2+labelColW, X4=X3;
   const numCols = outputCols.length;
   const X5 = X4 + numCols*colW;
   // If the LAST (rightmost) category's name had to spill past its own narrow column(s) (see
@@ -1007,7 +1012,7 @@ function buildMatrixPdf(){
   const pageBodies = pdfPages.map(page=>{
     const p = makePdfPageBuilder();
     const rowCount = page.rows.length;
-    const Y0=0, Y1=rowCount*rowH, Y2=Y1+headerBandH, Y3=Y2+colCatBandH, Y4=Y3+sysOutputsBandH;
+    const Y0=0, Y1=rowCount*rowH, Y1i=Y1+sysInputsBandH, Y2=Y1+headerBandH, Y3=Y2+colCatBandH, Y4=Y3+sysOutputsBandH;
     const Y1b = Y1+letterRowH; // top of the letter-code row / bottom seam the diagonal fan rises from
     function rowTopY(i){ return Y1-i*rowH; }
     function rowBottomY(i){ return Y1-(i+1)*rowH; }
@@ -1024,11 +1029,17 @@ function buildMatrixPdf(){
       let y = cy + (lines.length-1)*spacing/2 - h*capHRatio*0.5;
       lines.forEach(ln=>{ const len = pdfTextWidth(ln,h,bold); text(cx-len/2, y, h, 0, ln, bold); y -= spacing; });
     }
-    function placeVerticalCentered(cx,cy,availH,str,h,bold){
+    // Right-aligned vertical text: the insertion x IS the ink's right edge for 90°-rotated text
+    // (the glyph's cap-height band extends leftward, in -X, from the insertion point — the same
+    // offset the "+h*capHRatio*0.5" nudge above corrects for when centering), so no capH/2
+    // correction is needed here: anchoring the raw insertion x at (xRight - pad) puts the ink's
+    // right edge flush against xRight with that small pad to spare.
+    function placeVerticalRightAligned(xRight,cy,availH,str,h,bold){
       const lines = wrapLabel(str, s=>pdfTextWidth(s,h,bold), availH);
       const spacing = h*1.4;
-      let x = cx + (lines.length-1)*spacing/2;
-      lines.forEach(ln=>{ const len = pdfTextWidth(ln,h,bold); text(x+h*capHRatio*0.5, cy-len/2, h, 90, ln, bold); x -= spacing; });
+      const pad = 0.05;
+      let x = xRight - pad;
+      lines.forEach(ln=>{ const len = pdfTextWidth(ln,h,bold); text(x, cy-len/2, h, 90, ln, bold); x -= spacing; });
     }
 
     // grid: outer border + the X4 spine (divides row info from data columns, full height).
@@ -1041,11 +1052,15 @@ function buildMatrixPdf(){
     [X0,X4].forEach(x=> line(x,Y0,x,Y4));
     line(X5f,Y0,X5f,Y4);
     [Y0,Y1,Y4].forEach(y=> line(X0,y,X5f,y));
+    // top seam of the SYSTEM INPUTS title band, confined to the row-info section's own width
+    // (X0..X4) — analogous to the Y2/Y3 seams on the column side, which are similarly confined to
+    // their own section's width instead of running the full outer-frame width.
+    line(X0,Y1i,X4,Y1i);
     // row dividers + row-category dividers (this page only) — confined to the row area (Y0..Y1)
-    [X1,X2,X3].forEach(x=> line(x,Y0,x,Y1));
+    [X1,X2].forEach(x=> line(x,Y0,x,Y1));
     for(let i=1;i<rowCount;i++) line(X2, rowTopY(i), X5, rowTopY(i));
     page.catBands.forEach((band,bi)=>{
-      if(bi < page.catBands.length-1){ const y = Y1-(band.startRow+band.rowCount)*rowH; line(X1,y,X2,y); }
+      if(bi < page.catBands.length-1){ const y = Y1-(band.startRow+band.rowCount)*rowH; line(X0,y,X1,y); }
     });
     // column dividers + column-category dividers (identical on every page) — confined to the
     // column-header area (X4..X5), except Y2/Y3 which also extend into the blank margin (X5..X5f)
@@ -1065,18 +1080,24 @@ function buildMatrixPdf(){
     { let acc=0; outCats.forEach((cat,ci)=>{ acc+=cat.items.length; if(ci<outCats.length-1){ const x=X4+acc*colW; line(x,Y2,x,Y3); } }); }
 
     // titles (repeated on every page)
-    placeVerticalCentered((X0+X1)/2, (Y0+Y1)/2, Y1-Y0-0.1, 'SYSTEM INPUTS', textHTitle, true);
+    // SYSTEM INPUTS (horizontal, spans X0..X4, Y1..Y1i) — a title band directly above the row
+    // list, mirroring how SYSTEM OUTPUTS is a horizontal band directly above the column list,
+    // rather than a vertical strip running the full row height down the left edge.
+    placeHorizontalCentered((X0+X4)/2, (Y1+Y1i)/2, X4-X0-0.1, 'SYSTEM INPUTS', textHTitle, true);
     // Centered across the FULL title band (X4..X5f), not just the real data-grid width (X4..X5) —
     // otherwise the title sits visibly left-of-center whenever the frame is widened for a spilled
     // category label.
     placeHorizontalCentered((X4+X5f)/2, (Y3+Y4)/2, X5f-X4-0.1, 'SYSTEM OUTPUTS', textHTitle, true);
-    // optional drawing title, centered in the whole blank corner block (X0..X4, Y1..Y4)
-    if(dTitle) placeHorizontalCentered((X0+X4)/2, (Y1+Y4)/2, X4-X0-0.2, dTitle, 0.16, true);
+    // optional drawing title, centered in the blank corner block above the SYSTEM INPUTS band
+    // (X0..X4, Y1i..Y4)
+    if(dTitle) placeHorizontalCentered((X0+X4)/2, (Y1i+Y4)/2, X4-X0-0.2, dTitle, 0.16, true);
 
-    // row-category labels (this page's bands only)
+    // row-category labels (this page's bands only), right-aligned tight against the row-number
+    // divider X1 rather than centered in the band — any leftover slack from the shared band width
+    // sits on the blank left side (toward X0) instead of splitting on both sides.
     page.catBands.forEach(band=>{
       const yTop = Y1-band.startRow*rowH, yBot = Y1-(band.startRow+band.rowCount)*rowH;
-      placeVerticalCentered((X1+X2)/2, (yTop+yBot)/2, (yTop-yBot)-0.06, band.name, textHCat, true);
+      placeVerticalRightAligned(X1, (yTop+yBot)/2, (yTop-yBot)-0.06, band.name, textHCat, true);
     });
     // column-category labels (identical on every page)
     { let acc=0; outCats.forEach(cat=>{
@@ -1099,8 +1120,8 @@ function buildMatrixPdf(){
       const yc = rowCenterY(i);
       const numStr = String(r.drawNum);
       const numW = pdfTextWidth(numStr, textHRow, false);
-      text(X2+(numColW-numW)/2, yc-textHRow*0.35, textHRow, 0, numStr, false);
-      text(X3+0.03, yc-textHRow*0.35, textHRow, 0, r.item.label, false);
+      text(X1+(numColW-numW)/2, yc-textHRow*0.35, textHRow, 0, numStr, false);
+      text(X2+0.03, yc-textHRow*0.35, textHRow, 0, r.item.label, false);
     });
     // letter codes (A, B, C...), horizontal, centered in each column directly above the data grid.
     outputCols.forEach((c,j)=>{
@@ -1431,6 +1452,16 @@ class DxfWriter{
     // dedicated text style pointing at a real TrueType font, makes the import self-contained and
     // predictable regardless of what's already in the target drawing.
     this.parts.push(
+      // A minimal HEADER section declaring the DXF version and drawing units. Without $ACADVER,
+      // a reader has no stated basis for expecting newer entity types like HATCH (introduced
+      // after the R12/AC1009 era this file otherwise resembles, being built from only LINE/TEXT/
+      // POLYLINE/TABLES so far) to be present, and without $INSUNITS there's no explicit record
+      // that every coordinate in this file is in inches.
+      '0\nSECTION\n2\nHEADER\n' +
+        '9\n$ACADVER\n1\nAC1015\n' +
+        '9\n$INSUNITS\n70\n1\n' +
+        '9\n$MEASUREMENT\n70\n0\n' +
+      '0\nENDSEC\n' +
       '0\nSECTION\n2\nTABLES\n' +
         '0\nTABLE\n2\nSTYLE\n70\n1\n' +
           `0\nSTYLE\n2\n${DXF_TEXT_STYLE}\n70\n0\n40\n0\n41\n1\n50\n0\n71\n0\n42\n1\n3\narial.ttf\n4\n\n` +
@@ -1454,11 +1485,18 @@ class DxfWriter{
     this.parts.push(`0\nTEXT\n8\n${layer}\n10\n${fmt(x)}\n20\n${fmt(y)}\n30\n0\n40\n${fmt(h)}\n1\n${str}\n50\n${fmt(rot)}\n7\n${DXF_TEXT_STYLE}\n`);
   }
   filledDot(x,y,d,layer){
-    // Old-style POLYLINE with two coincident vertices and constant width = filled circle in AutoCAD.
-    let s = `0\nPOLYLINE\n8\n${layer}\n66\n1\n70\n0\n40\n${fmt(d)}\n41\n${fmt(d)}\n`;
-    s += `0\nVERTEX\n8\n${layer}\n10\n${fmt(x)}\n20\n${fmt(y)}\n30\n0\n40\n${fmt(d)}\n41\n${fmt(d)}\n`;
-    s += `0\nVERTEX\n8\n${layer}\n10\n${fmt(x)}\n20\n${fmt(y)}\n30\n0\n40\n${fmt(d)}\n41\n${fmt(d)}\n`;
-    s += `0\nSEQEND\n8\n${layer}\n`;
+    // A solid-fill HATCH with a single full-circle arc boundary. The previous approach (an
+    // old-style POLYLINE with two coincident, equal-width VERTEX entities — the classic "wide
+    // zero-length segment" filled-dot trick) turned out not to reliably import as an actual
+    // filled circle in current AutoCAD versions; it renders as a near-invisible artifact (just a
+    // tiny grip point at the coordinate, no visible fill) instead. A HATCH is the format's own
+    // dedicated filled-region entity and is universally supported, so it doesn't depend on that
+    // older trick working the way it used to — same class of fix as the PDF export's filledDot(),
+    // which had the same AutoCAD-import-reliability problem with its old Bezier-circle fills.
+    const r = d/2;
+    let s = `0\nHATCH\n8\n${layer}\n10\n0\n20\n0\n30\n0\n210\n0\n220\n0\n230\n1\n2\nSOLID\n70\n1\n71\n0\n91\n1\n`;
+    s += `92\n1\n93\n1\n72\n2\n10\n${fmt(x)}\n20\n${fmt(y)}\n40\n${fmt(r)}\n50\n0\n51\n360\n73\n1\n`;
+    s += `97\n0\n75\n1\n76\n1\n98\n0\n`;
     this.parts.push(s);
   }
 }
@@ -1622,15 +1660,19 @@ function buildDxf(){
     });
   }
 
-  const sysInputsBandW = 0.34;
   const sysOutputsBandH = 0.40;
+  // SYSTEM INPUTS sits in a horizontal title band directly above the row list (see Y1i below),
+  // mirroring how SYSTEM OUTPUTS sits in a horizontal band above the column list, rather than
+  // occupying its own dedicated vertical strip down the left edge — so there's no separate
+  // "sysInputsBandW" column reserved here any more; the row-category band starts right at X0.
+  const sysInputsBandH = 0.40;
 
   // ---- geometry ----
   const X0 = 0;
-  const X1 = X0 + sysInputsBandW;
-  const X2 = X1 + rowCatColW;
-  const X3 = X2 + numColW;
-  const X4 = X3 + labelColW;         // start of data grid
+  const X1 = X0 + rowCatColW;        // end of row-category band / start of row numbers
+  const X2 = X1 + numColW;           // end of row numbers / start of row labels
+  const X3 = X2 + labelColW;         // end of row labels = start of data grid
+  const X4 = X3;                     // alias: every other reference in this function treats X4 as "start of data grid"
   const X5 = X4 + numCols*colW;      // right edge of the real data grid
   // Same outer-frame extension as the PDF export: the fan's own rightmost diagonal divider rises
   // fanH to the right, so the frame needs widening for that alone; on top of that, if the last
@@ -1652,6 +1694,7 @@ function buildDxf(){
   const totalDataHeight = numRows*rowH;
   const Y0 = 0;
   const Y1 = Y0 + totalDataHeight;                 // top of data rows
+  const Y1i = Y1 + sysInputsBandH;                  // top of the SYSTEM INPUTS title band
   const Y2 = Y1 + headerBandH;                      // top of column-header band
   const Y3 = Y2 + colCatBandH;                       // top of column-category band
   const Y4 = Y3 + sysOutputsBandH;                   // overall top
@@ -1675,15 +1718,19 @@ function buildDxf(){
   [X0,X4].forEach(x=> dxf.line(x,Y0,x,Y4,LAYER_GRID));
   dxf.line(X5f,Y0,X5f,Y4,LAYER_GRID);
   [Y0,Y1,Y4].forEach(y=> dxf.line(X0,y,X5f,y,LAYER_GRID));
+  // top seam of the SYSTEM INPUTS title band, confined to the row-info section's own width
+  // (X0..X4) — analogous to the Y2/Y3 seams on the column side, which are similarly confined to
+  // their own section's width instead of running the full outer-frame width.
+  dxf.line(X0,Y1i,X4,Y1i,LAYER_GRID);
 
   // interior row dividers (data rows), spanning numCol+labelCol+data grid
   for(let i=1;i<numRows;i++){ dxf.line(X2, rowTopY(i), X5, rowTopY(i), LAYER_GRID); }
   // row-category interior boundaries, spanning just the row-cat band, confined to the row area
-  [X1,X2,X3].forEach(x=> dxf.line(x,Y0,x,Y1,LAYER_GRID));
+  [X1,X2].forEach(x=> dxf.line(x,Y0,x,Y1,LAYER_GRID));
   { let acc=0;
     inCats.forEach((cat,ci)=>{
       acc += cat.items.length;
-      if(ci < inCats.length-1){ const y = Y1-acc*rowH; dxf.line(X1,y,X2,y,LAYER_GRID); }
+      if(ci < inCats.length-1){ const y = Y1-acc*rowH; dxf.line(X0,y,X1,y,LAYER_GRID); }
     });
   }
 
@@ -1711,24 +1758,29 @@ function buildDxf(){
   }
 
   // ================= TITLES =================
-  // SYSTEM INPUTS (vertical, spans X0..X1, Y0..Y1)
-  placeVerticalCentered((X0+X1)/2, (Y0+Y1)/2, Y1-Y0-0.1, 'SYSTEM INPUTS', textHTitle, LAYER_TITLE);
+  // SYSTEM INPUTS (horizontal, spans X0..X4, Y1..Y1i) — a title band directly above the row list,
+  // mirroring how SYSTEM OUTPUTS is a horizontal band directly above the column list, rather than
+  // a vertical strip running the full row height down the left edge.
+  placeHorizontalCentered((X0+X4)/2, (Y1+Y1i)/2, X4-X0-0.1, 'SYSTEM INPUTS', textHTitle, LAYER_TITLE);
   // SYSTEM OUTPUTS (horizontal, spans X4..X5f, Y3..Y4) — centered across the FULL title band, not
   // just the real data-grid width, otherwise it sits left-of-center whenever the frame is widened
   // for a spilled category label.
   placeHorizontalCentered((X4+X5f)/2, (Y3+Y4)/2, X5f-X4-0.1, 'SYSTEM OUTPUTS', textHTitle, LAYER_TITLE);
 
-  // optional drawing title, centered in the whole blank corner block (X0..X4, Y1..Y4)
+  // optional drawing title, centered in the blank corner block above the SYSTEM INPUTS band
+  // (X0..X4, Y1i..Y4)
   const dTitle = (document.getElementById('drawingTitle').value||'').trim();
   if(dTitle){
-    placeHorizontalCentered((X0+X4)/2, (Y1+Y4)/2, X4-X0-0.2, dTitle, 0.16, LAYER_TITLE);
+    placeHorizontalCentered((X0+X4)/2, (Y1i+Y4)/2, X4-X0-0.2, dTitle, 0.16, LAYER_TITLE);
   }
 
-  // ---- row category labels (vertical, wrapped, stacked) ----
+  // ---- row category labels (vertical, wrapped, stacked, right-aligned tight against the row-
+  // number divider X1 rather than centered in the band — any leftover slack from the shared band
+  // width sits on the blank left side (toward X0) instead of splitting on both sides) ----
   { let acc=0;
     inCats.forEach(cat=>{
       const yTop = Y1-acc*rowH, yBot = Y1-(acc+cat.items.length)*rowH;
-      placeVerticalWrapped(X1, X2, (yTop+yBot)/2, (yTop-yBot)-0.06, cat.name, textHCat, LAYER_TEXT);
+      placeVerticalRightAligned(X1, (yTop+yBot)/2, (yTop-yBot)-0.06, cat.name, textHCat, LAYER_TEXT);
       acc += cat.items.length;
     });
   }
@@ -1754,8 +1806,8 @@ function buildDxf(){
     const yc = rowCenterY(i);
     const numStr = String(r.drawNum);
     const numW = numStr.length*textHRow*charW;
-    dxf.text(X2+(numColW-numW)/2, yc-textHRow*0.35, textHRow, 0, numStr, LAYER_TEXT);
-    dxf.text(X3+0.03, yc-textHRow*0.35, textHRow, 0, r.item.label, LAYER_TEXT);
+    dxf.text(X1+(numColW-numW)/2, yc-textHRow*0.35, textHRow, 0, numStr, LAYER_TEXT);
+    dxf.text(X2+0.03, yc-textHRow*0.35, textHRow, 0, r.item.label, LAYER_TEXT);
   });
 
   // ---- letter codes (A, B, C...), horizontal, centered in each column directly above the grid ----
@@ -1809,21 +1861,24 @@ function buildDxf(){
       y -= spacing;
     });
   }
-  function placeVerticalCentered(cx, cy, availH, text, h, layer){
+  // Right-aligned vertical text: the insertion x IS the ink's right edge for 90°-rotated text (the
+  // glyph's cap-height band extends leftward, in -X, from the insertion point — this is exactly the
+  // offset placeVerticalCentered's old "+h*0.35" nudge was correcting for when centering), so unlike
+  // the centered helper, no capH/2 correction is needed here: anchoring the raw insertion x at
+  // (xRight - pad) puts the ink's right edge flush against xRight with that small pad to spare.
+  function placeVerticalRightAligned(xRight, cy, availH, text, h, layer){
     const lines = wrapLabel(text, h*charW, availH);
     const spacing = h*1.4;
-    let x = cx + (lines.length-1)*spacing/2;
+    const pad = 0.05;
+    let x = xRight - pad;
     lines.forEach(line=>{
       const len = line.length*h*charW;
-      dxf.text(x+h*0.35, cy-len/2, h, 90, line, layer);
+      dxf.text(x, cy-len/2, h, 90, line, layer);
       x -= spacing;
     });
   }
   function placeHorizontalWrapped(yBottom, yTop, cx, availW, text, h, layer){
     placeHorizontalCentered(cx, (yBottom+yTop)/2, availW, text, h, layer);
-  }
-  function placeVerticalWrapped(xLeft, xRight, cy, availH, text, h, layer){
-    placeVerticalCentered((xLeft+xRight)/2, cy, availH, text, h, layer);
   }
 
   return dxf.finish();
