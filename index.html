@@ -126,9 +126,20 @@
   table.gridtable td.datacell .dotmark{width:9px;height:9px;border-radius:50%;background:#111;margin:0 auto;}
   table.gridtable td.datacell .notemark{font-size:9px;color:var(--note);font-weight:700;}
   table.gridtable td.datacell.nu, table.gridtable th.nu{background:repeating-linear-gradient(45deg,#f4f4f4,#f4f4f4 4px,#ececec 4px,#ececec 8px);}
-  table.gridtable th.colhead{height:230px;position:relative;background:#fff;padding:4px;vertical-align:bottom;text-align:center;}
-  th.colhead .rot{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font-weight:600;
-    font-size:10px;display:inline-block;}
+  /* Matches the PDF/DXF exports' 45-degree diagonal "fan" header: th.colfan is the tall band
+     directly above the letter-code row, left empty on purpose (its height is set by JS below,
+     from a measurement pass, same reasoning as .colcatOverlay) — the diagonal label text and
+     the diagonal fan divider lines are both drawn as absolutely-positioned overlays on top of
+     it, living outside the table DOM for the same cross-browser-reliability reason as the
+     category overlay. th.colletter is the short row of single-letter column codes (A, B, C...)
+     sitting directly above the data grid, mirroring the exports' letterRowH band. */
+  table.gridtable th.colfan{position:relative;background:#fff;padding:0;}
+  table.gridtable th.colletter{height:18px;max-height:18px;font-size:9px;font-weight:700;
+    background:#fafbfc;color:var(--ink-soft);}
+  .colfanLabel{position:absolute;white-space:nowrap;font-weight:600;font-size:10px;
+    transform-origin:left bottom;pointer-events:none;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#111;}
+  .colfanLines{position:absolute;left:0;top:0;pointer-events:none;overflow:visible;}
   table.gridtable th.colcat{background:#f0f2f5;height:22px;}
   /* Category-header labels are drawn as a separate overlay layer (see .colcatOverlay below), NOT
      as text content inside th.colcat. A narrow (1-2 column) category's name would otherwise force
@@ -222,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 70</span>
+    <span style="color:#c3c8ce;">· build 72</span>
   </footer>
 </div>
 
@@ -801,7 +812,15 @@ function makePdfPageBuilder(){
       const font = bold ? '/F2' : '/F1';
       const esc = pdfEscape(str);
       if(!esc) return;
-      const mtx = rotDeg===90 ? `0 1 -1 0 ${fmtPt(x)} ${fmtPt(y)}` : `1 0 0 1 ${fmtPt(x)} ${fmtPt(y)}`;
+      // General PDF text-rotation matrix [cosθ sinθ -sinθ cosθ x y] — handles any angle (0°, 45°
+      // for the diagonal column headers, 90° for vertical row-category labels), not just 0/90.
+      let mtx;
+      if(rotDeg===0){
+        mtx = `1 0 0 1 ${fmtPt(x)} ${fmtPt(y)}`;
+      } else {
+        const rad = rotDeg*Math.PI/180, c = Math.cos(rad), s = Math.sin(rad);
+        mtx = `${fmtPt(c)} ${fmtPt(s)} ${fmtPt(-s)} ${fmtPt(c)} ${fmtPt(x)} ${fmtPt(y)}`;
+      }
       ops.push(`BT ${font} ${fmtPt(sizePt)} Tf ${mtx} Tm (${esc}) Tj ET`);
     },
     filledDot(cx,cy,r){
@@ -877,10 +896,15 @@ function buildMatrixPdf(){
   const maxLabelW = Math.max(...inputRows.map(r=>pdfTextWidth(r.item.label, textHRow, false)));
   const labelColW = Math.min(7.5, Math.max(2.2, maxLabelW + 0.3));
   const maxHeaderW = Math.max(...outputCols.map(c=>pdfTextWidth(c.item.label, textHCol, false)));
-  // 0.03 of this slack is the gap between the label's bottom and the row grid line below it (see
-  // the Y1+0.03 text placement below), matching the row label's own text-to-dividing-line gap
-  // (X3+0.03); the rest is top margin.
-  const headerBandH = Math.min(9.0, Math.max(1.6, maxHeaderW + 0.08));
+  const S45 = Math.SQRT1_2; // cos(45°) === sin(45°) — used throughout the diagonal header geometry below
+  // Column headers run diagonally at 45° (a common fire-alarm C&E matrix drafting convention)
+  // instead of straight up: a short A/B/C... letter-code row sits directly above the data grid
+  // (letterRowH tall), and above that the column names run up-and-to-the-right along parallel 45°
+  // lines (fanH tall). A 45° line with vertical rise fanH has diagonal length fanH*sqrt(2), so fanH
+  // is sized from the longest header's rendered width (plus a little slack) divided by sqrt(2).
+  const letterRowH = 0.20;
+  const fanH = Math.min(9.0, Math.max(0.6, (maxHeaderW + 0.16) * S45));
+  const headerBandH = letterRowH + fanH;
   let rowCatColW = 0.5;
   inCats.forEach(cat=>{
     const bandLen = Math.max(rowH, cat.items.length*rowH) - 0.06;
@@ -913,7 +937,10 @@ function buildMatrixPdf(){
   // to enclose it (the real data grid itself stays exactly numCols*colW wide; this only widens the
   // blank margin outside it).
   const lastCat = outCats[outCats.length-1];
-  let frameExtraW = 0;
+  // The fan's own rightmost diagonal divider (right edge of the last real column) rises fanH to
+  // the right as it climbs from the letter row up to the category band — the frame needs widening
+  // for this alone, even when no category name spills (that's the separate case handled below).
+  let frameExtraW = fanH;
   if(lastCat && lastCat._spill){
     // The label is centered within the full span from the category's own left edge out to the
     // extended frame (see rendering below). Real margin on both sides (not just enough to avoid
@@ -921,7 +948,7 @@ function buildMatrixPdf(){
     // left-aligned fit.
     const lastCatLeftX = X4 + lastCat._colStart*colW;
     const lastLabelW = pdfTextWidth(lastCat.name, textHCat, true);
-    frameExtraW = Math.max(0, (lastCatLeftX + lastLabelW + 0.5) - X5);
+    frameExtraW = Math.max(frameExtraW, (lastCatLeftX + lastLabelW + 0.5) - X5);
   }
   const X5f = X5 + frameExtraW;
   const headerStackH = headerBandH + colCatBandH + sysOutputsBandH;
@@ -981,6 +1008,7 @@ function buildMatrixPdf(){
     const p = makePdfPageBuilder();
     const rowCount = page.rows.length;
     const Y0=0, Y1=rowCount*rowH, Y2=Y1+headerBandH, Y3=Y2+colCatBandH, Y4=Y3+sysOutputsBandH;
+    const Y1b = Y1+letterRowH; // top of the letter-code row / bottom seam the diagonal fan rises from
     function rowTopY(i){ return Y1-i*rowH; }
     function rowBottomY(i){ return Y1-(i+1)*rowH; }
     function rowCenterY(i){ return (rowTopY(i)+rowBottomY(i))/2; }
@@ -1024,11 +1052,16 @@ function buildMatrixPdf(){
     // so the category-name band's own top/bottom borders form a continuous line matching the outer
     // frame above/below it, instead of stopping short and leaving a notch in the border.
     [Y2,Y3].forEach(y=> line(X4,y,X5f,y));
-    // j<=numCols (not j<numCols) so the LAST real column also gets its own right-hand divider —
-    // previously that boundary coincided with the outer border (X5) so a separate line wasn't
-    // needed there, but the outer border has since moved out to X5f, leaving that edge undrawn.
-    // Stops at Y2 (not Y3) so it doesn't cut through a centered, spilled category-name label.
-    for(let j=1;j<=numCols;j++) line(colLeftX(j), Y0, colLeftX(j), Y2);
+    // Straight verticals only run through the data grid + letter-code row (Y0..Y1b) — above that,
+    // the column dividers become the diagonal fan lines drawn below instead.
+    // j<=numCols (not j<numCols) so the LAST real column also gets its own right-hand divider.
+    for(let j=1;j<=numCols;j++) line(colLeftX(j), Y0, colLeftX(j), Y1b);
+    line(X4, Y1b, X5, Y1b); // top seam of the letter-code row (bottom of the diagonal fan)
+    // the diagonal fan itself: one 45° line per column boundary (numCols+1 of them, including both
+    // outer edges), each rising fanH up-and-to-the-right from its seam point — parallel lines, not
+    // a true single-point fan. The rightmost one (at X5) rises into the blank margin out to X5f,
+    // which is why the outer frame was widened by at least fanH above.
+    for(let j=0;j<=numCols;j++){ const xB = colLeftX(j); line(xB, Y1b, xB+fanH, Y2); }
     { let acc=0; outCats.forEach((cat,ci)=>{ acc+=cat.items.length; if(ci<outCats.length-1){ const x=X4+acc*colW; line(x,Y2,x,Y3); } }); }
 
     // titles (repeated on every page)
@@ -1069,8 +1102,27 @@ function buildMatrixPdf(){
       text(X2+(numColW-numW)/2, yc-textHRow*0.35, textHRow, 0, numStr, false);
       text(X3+0.03, yc-textHRow*0.35, textHRow, 0, r.item.label, false);
     });
-    // column headers, bottom-anchored to a common baseline (identical on every page)
-    outputCols.forEach((c,j)=>{ text(colCenterX(j)+textHCol*capHRatio*0.5, Y1+0.03, textHCol, 90, c.item.label, false); });
+    // letter codes (A, B, C...), horizontal, centered in each column directly above the data grid.
+    outputCols.forEach((c,j)=>{
+      const letter = colLetter(j);
+      const letterW = pdfTextWidth(letter, textHRow, false);
+      text(colCenterX(j)-letterW/2, (Y1+Y1b)/2 - textHRow*0.35, textHRow, 0, letter, false);
+    });
+    // column headers, running diagonally at 45° above the letter row, bottom-anchored to the same
+    // seam (Y1b) every column shares (identical on every page). The anchor point is offset from the
+    // strip's own bottom-center (xMid, Y1b): hpad forward along the 45° reading direction so text
+    // doesn't start exactly on the seam line, and capH/2 along the perpendicular ("cap-height")
+    // direction — derived the same way as the 90°-rotation case above (device_x = x - ty there),
+    // generalized to an arbitrary angle: perpendicular unit vector = (sinθ, -cosθ), so centering the
+    // text's cap-height band adds (sinθ, -cosθ)*capH/2 to the anchor.
+    { const capH = textHCol*capHRatio, hpad = 0.05;
+      outputCols.forEach((c,j)=>{
+        const xMid = colLeftX(j) + colW/2;
+        const ax = xMid + S45*(hpad + capH*0.5);
+        const ay = Y1b + S45*(hpad - capH*0.5);
+        text(ax, ay, textHCol, 45, c.item.label, false);
+      });
+    }
 
     // marks
     page.rows.forEach((r,i)=>{
@@ -1133,10 +1185,16 @@ function renderMatrixPreview(){
     .filter(cat => cat.items.length > 0);
   const totalCols = outCats.reduce((s,c)=>s+c.items.length,0);
 
+  // Flat column list in the same left-to-right order the data cells render in, so colLetter(j)
+  // means the same thing here as it does in the PDF/DXF exports (both built from this same
+  // category-then-item order).
+  const flatCols = [];
+  outCats.forEach(c=>c.items.forEach(it=>flatCols.push(it)));
+
   let html = '<table class="gridtable"><thead>';
   // row 1: corner + SYSTEM OUTPUTS title
   html += '<tr>';
-  html += `<th class="corner topleftTitle" rowspan="3" colspan="3"></th>`;
+  html += `<th class="corner topleftTitle" rowspan="4" colspan="3"></th>`;
   html += `<th class="outputsTitle" colspan="${totalCols}"><span class="stickyCenter">SYSTEM OUTPUTS</span></th>`;
   html += '</tr>';
   // row 2: output categories
@@ -1150,11 +1208,21 @@ function renderMatrixPreview(){
     html += `<th class="colcat" colspan="${c.items.length}" data-catidx="${ci}"></th>`;
   });
   html += '</tr>';
-  // row 3: output items (rotated)
+  // row 3: the 45-degree diagonal "fan" band. Left empty on purpose, same reasoning as th.colcat
+  // above — the diagonal label text and the diagonal divider lines are drawn as overlays once the
+  // band's real height (set from a measurement pass below) is known, mirroring the PDF/DXF exports'
+  // fanH band.
   html += '<tr>';
-  outCats.forEach(c=>c.items.forEach(it=>{
-    html += `<th class="colhead ${it.notUsed?'nu':''}"><div class="rot">${escapeHtml(it.label)}</div></th>`;
-  }));
+  flatCols.forEach((it,j)=>{
+    html += `<th class="colfan ${it.notUsed?'nu':''}" data-colidx="${j}"></th>`;
+  });
+  html += '</tr>';
+  // row 4: single-letter column codes directly above the data grid, mirroring the exports'
+  // letterRowH band.
+  html += '<tr>';
+  flatCols.forEach((it,j)=>{
+    html += `<th class="colletter ${it.notUsed?'nu':''}" data-colidx="${j}">${colLetter(j)}</th>`;
+  });
   html += '</tr>';
   html += '</thead><tbody>';
 
@@ -1268,6 +1336,73 @@ function renderMatrixPreview(){
     ov.innerHTML = catLines[ci].map(escapeHtml).join('<br>');
     host.appendChild(ov);
   });
+
+  // ---- 45-degree diagonal fan header (mirrors the PDF/DXF exports' fanH band) ----
+  // Size the band tall enough for the longest output label to fit along its diagonal run, using
+  // the same (label width + pad) * sin45 relationship the exporters use for fanH, in on-screen
+  // pixels instead of inches.
+  const fanFont = '600 10px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+  const S45 = Math.SQRT1_2;
+  const maxHeaderW = flatCols.length ? Math.max(...flatCols.map(it=>measureTextWidth(it.label, fanFont))) : 0;
+  const fanH = Math.min(260, Math.max(50, (maxHeaderW + 10) * S45));
+  host.querySelectorAll('th.colfan').forEach(th=>{ th.style.height = fanH + 'px'; });
+
+  // Re-measure fresh: setting the fan band's height (and any category-row height change above)
+  // shifts everything below it, so any rect captured before this point is stale.
+  const hostRect2 = host.getBoundingClientRect();
+  const fanCells = flatCols.map((it,j)=>host.querySelector(`th.colfan[data-colidx="${j}"]`));
+  const letterCells = flatCols.map((it,j)=>host.querySelector(`th.colletter[data-colidx="${j}"]`));
+  if(fanCells.length && fanCells[0] && letterCells[0]){
+    const bandTopY = fanCells[0].getBoundingClientRect().top - hostRect2.top + host.scrollTop;
+    const bandBottomY = letterCells[0].getBoundingClientRect().top - hostRect2.top + host.scrollTop;
+    // Column boundary x-positions (numCols+1 of them), taken from the letter row cells since
+    // they sit directly below the fan band and share the same column widths.
+    const colX = [];
+    letterCells.forEach(td=>{
+      const r = td.getBoundingClientRect();
+      colX.push(r.left - hostRect2.left + host.scrollLeft);
+    });
+    colX.push(letterCells[letterCells.length-1].getBoundingClientRect().right - hostRect2.left + host.scrollLeft);
+
+    // Diagonal divider lines: one per column boundary, rising from the letter row's top edge up
+    // to the category row's bottom edge, shifted right by fanH — same fan geometry as the
+    // PDF/DXF `line(xB, Y1b, xB+fanH, Y2)` loop.
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('class','colfanLines');
+    const svgW = Math.ceil(colX[colX.length-1] + fanH + 4);
+    const svgH = Math.ceil(bandBottomY + 4);
+    svg.setAttribute('width', svgW);
+    svg.setAttribute('height', svgH);
+    svg.style.width = svgW + 'px';
+    svg.style.height = svgH + 'px';
+    colX.forEach(x0=>{
+      const ln = document.createElementNS(svgNS, 'line');
+      ln.setAttribute('x1', x0); ln.setAttribute('y1', bandBottomY);
+      ln.setAttribute('x2', x0 + fanH); ln.setAttribute('y2', bandTopY);
+      ln.setAttribute('stroke', '#333'); ln.setAttribute('stroke-width', '1');
+      svg.appendChild(ln);
+    });
+    host.appendChild(svg);
+
+    // Diagonal label text: anchored at each column's center on the fan band's bottom edge, then
+    // rotated -45deg — CSS rotate() is clockwise for positive angles, so a negative angle tilts
+    // the normally-horizontal text up and to the right, about that anchor (transform-origin: left
+    // bottom) — matching the exports' text running "uphill" between the fan lines.
+    const pad = 4 * S45;
+    flatCols.forEach((it,j)=>{
+      const cx = (colX[j] + colX[j+1]) / 2;
+      const label = document.createElement('div');
+      label.className = 'colfanLabel';
+      label.style.left = (cx + pad) + 'px';
+      label.style.top = (bandBottomY - 12 - pad) + 'px';
+      label.style.height = '12px';
+      label.style.lineHeight = '12px';
+      label.style.transform = 'rotate(-45deg)';
+      label.textContent = it.label;
+      host.appendChild(label);
+    });
+  }
 }
 
 /* ============================= DXF EXPORT ============================= */
@@ -1326,6 +1461,14 @@ class DxfWriter{
     s += `0\nSEQEND\n8\n${layer}\n`;
     this.parts.push(s);
   }
+}
+
+// Spreadsheet-style column letter code for the header row directly above the data grid: 0->A,
+// 1->B, ..., 25->Z, 26->AA, 27->AB, .... Shared by the PDF and DXF exports (and the HTML preview).
+function colLetter(idx){
+  let n = idx+1, s = '';
+  while(n>0){ const rem=(n-1)%26; s = String.fromCharCode(65+rem)+s; n = Math.floor((n-1)/26); }
+  return s;
 }
 
 // word-wrap a label into lines whose rendered length (chars*charWidth) fits within maxLen
@@ -1444,10 +1587,15 @@ function buildDxf(){
 
   // dynamic header band height from longest output label
   const maxHeaderLen = Math.max(10, ...outputCols.map(c=>c.item.label.length));
-  // 0.03 of this slack is the gap between the label's bottom and the row grid line below it (see
-  // the Y1+0.03 text placement below), matching the row label's own text-to-dividing-line gap
-  // (X3+0.03); the rest is top margin.
-  const headerBandH = Math.min(9.0, Math.max(1.6, maxHeaderLen*textHCol*charW + 0.08));
+  const S45 = Math.SQRT1_2; // cos(45°) === sin(45°) — used throughout the diagonal header geometry below
+  // Column headers run diagonally at 45° (a common fire-alarm C&E matrix drafting convention)
+  // instead of straight up: a short A/B/C... letter-code row sits directly above the data grid
+  // (letterRowH tall), and above that the column names run up-and-to-the-right along parallel 45°
+  // lines (fanH tall) — see the matching (exact, glyph-metric) derivation in buildMatrixPdf(); this
+  // DXF version uses the same flat charW approximation as the rest of this exporter.
+  const letterRowH = 0.20;
+  const fanH = Math.min(9.0, Math.max(0.6, (maxHeaderLen*textHCol*charW + 0.16) * S45));
+  const headerBandH = letterRowH + fanH;
 
   // dynamic row-category band width (wrap category names to fit each category's row-height span)
   let rowCatColW = 0.5;
@@ -1484,11 +1632,12 @@ function buildDxf(){
   const X3 = X2 + numColW;
   const X4 = X3 + labelColW;         // start of data grid
   const X5 = X4 + numCols*colW;      // right edge of the real data grid
-  // Same outer-frame extension as the PDF export: if the last category's name spilled past its
-  // own narrow column(s), extend the drawing's outer border far enough to enclose it instead of
-  // leaving it floating past the frame with nothing around it.
+  // Same outer-frame extension as the PDF export: the fan's own rightmost diagonal divider rises
+  // fanH to the right, so the frame needs widening for that alone; on top of that, if the last
+  // category's name spilled past its own narrow column(s), extend it further to enclose that too
+  // instead of leaving either one floating past the frame with nothing around it.
   const lastCat = outCats[outCats.length-1];
-  let frameExtraW = 0;
+  let frameExtraW = fanH;
   if(lastCat && lastCat._spill){
     // The label is centered within the full span from the category's own left edge out to the
     // extended frame (see rendering below). Real margin on both sides (not just enough to avoid
@@ -1496,7 +1645,7 @@ function buildDxf(){
     // left-aligned fit.
     const lastCatLeftX = X4 + lastCat._colStart*colW;
     const lastLabelW = lastCat.name.length*textHCat*charW;
-    frameExtraW = Math.max(0, (lastCatLeftX + lastLabelW + 0.5) - X5);
+    frameExtraW = Math.max(frameExtraW, (lastCatLeftX + lastLabelW + 0.5) - X5);
   }
   const X5f = X5 + frameExtraW;      // outer-frame right edge (>= X5)
 
@@ -1542,11 +1691,17 @@ function buildDxf(){
   // Y2/Y3 which also extend into the blank margin (X5..X5f) so the category-name band's own
   // top/bottom borders form a continuous line matching the outer frame instead of leaving a notch.
   [Y2,Y3].forEach(y=> dxf.line(X4,y,X5f,y,LAYER_GRID));
-  // j<=numCols (not j<numCols) so the LAST real column also gets its own right-hand divider —
-  // previously that boundary coincided with the outer border (X5) so a separate line wasn't
-  // needed there, but the outer border has since moved out to X5f, leaving that edge undrawn.
-  // Stops at Y2 (not Y3) so it doesn't cut through a centered, spilled category-name label.
-  for(let j=1;j<=numCols;j++){ dxf.line(colLeftX(j),Y0,colLeftX(j),Y2,LAYER_GRID); }
+  // Straight verticals only run through the data grid + letter-code row (Y0..Y1b) — above that,
+  // the column dividers become the diagonal fan lines drawn below instead.
+  // j<=numCols (not j<numCols) so the LAST real column also gets its own right-hand divider.
+  const Y1b = Y1+letterRowH; // top of the letter-code row / bottom seam the diagonal fan rises from
+  for(let j=1;j<=numCols;j++){ dxf.line(colLeftX(j),Y0,colLeftX(j),Y1b,LAYER_GRID); }
+  dxf.line(X4,Y1b,X5,Y1b,LAYER_GRID); // top seam of the letter-code row (bottom of the diagonal fan)
+  // the diagonal fan itself: one 45° line per column boundary (numCols+1, including both outer
+  // edges), each rising fanH up-and-to-the-right from its seam point — parallel lines, not a true
+  // single-point fan. The rightmost one (at X5) rises into the blank margin out to X5f, which is
+  // why the outer frame was widened by at least fanH above.
+  for(let j=0;j<=numCols;j++){ const xB = colLeftX(j); dxf.line(xB,Y1b,xB+fanH,Y2,LAYER_GRID); }
   // column-category interior boundaries, spanning just the col-cat band
   { let acc=0;
     outCats.forEach((cat,ci)=>{
@@ -1603,15 +1758,24 @@ function buildDxf(){
     dxf.text(X3+0.03, yc-textHRow*0.35, textHRow, 0, r.item.label, LAYER_TEXT);
   });
 
-  // ---- column headers (vertical, single line, bottom-to-top) ----
-  // Anchored to a common baseline just above the data grid (matching the source drawing's style)
-  // rather than centered in the header band, so every label starts at the same line and grows
-  // upward — short ones leave empty space at the top, long ones reach further up.
+  // ---- letter codes (A, B, C...), horizontal, centered in each column directly above the grid ----
   outputCols.forEach((c,j)=>{
-    const xc = colCenterX(j);
-    const y = Y1 + 0.03;
-    dxf.text(xc+textHCol*0.35, y, textHCol, 90, c.item.label, LAYER_TEXT);
+    const letter = colLetter(j);
+    const letterW = letter.length*textHRow*charW;
+    dxf.text(colCenterX(j)-letterW/2, (Y1+Y1b)/2 - textHRow*0.35, textHRow, 0, letter, LAYER_TEXT);
   });
+  // ---- column headers, running diagonally at 45° above the letter row ----
+  // Bottom-anchored to the same seam (Y1b) every column shares, same derivation as buildMatrixPdf():
+  // anchor = strip's bottom-center (xMid, Y1b), nudged hpad forward along the 45° reading direction
+  // plus capH/2 along the perpendicular direction (sinθ, -cosθ) to center the text on the strip.
+  { const capH = textHCol*capHRatio, hpad = 0.05;
+    outputCols.forEach((c,j)=>{
+      const xMid = colLeftX(j) + colW/2;
+      const ax = xMid + S45*(hpad + capH*0.5);
+      const ay = Y1b + S45*(hpad - capH*0.5);
+      dxf.text(ax, ay, textHCol, 45, c.item.label, LAYER_TEXT);
+    });
+  }
 
   // ---- outer border reinforcement (already covered by spines) ----
 
