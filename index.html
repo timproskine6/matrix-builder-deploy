@@ -126,7 +126,12 @@
   table.gridtable th.colhead{height:230px;position:relative;background:#fff;padding:4px;vertical-align:bottom;text-align:center;}
   th.colhead .rot{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font-weight:600;
     font-size:10px;display:inline-block;}
-  table.gridtable th.colcat{background:#f0f2f5;font-weight:700;font-size:10.5px;padding:6px 5px;white-space:nowrap;}
+  table.gridtable th.colcat{background:#f0f2f5;font-weight:700;font-size:10.5px;padding:0;white-space:nowrap;
+    position:relative;height:22px;overflow:visible;}
+  table.gridtable th.colcat .colcatLabel{position:absolute;left:0;top:0;height:100%;min-width:100%;
+    display:flex;align-items:center;padding:0 5px;white-space:nowrap;box-sizing:border-box;}
+  table.gridtable th.colcat .colcatLabel.fit{justify-content:center;}
+  table.gridtable th.colcat .colcatLabel.spill{justify-content:flex-start;}
   td.rownum{width:24px;background:#fafbfc;font-size:10px;color:var(--ink-soft);}
   table.gridtable td.rowlabel{text-align:left;padding:1px 3px;white-space:nowrap;font-size:10.5px;background:#fff;position:sticky;left:0;}
   table.gridtable td.rowcat{background:#f0f2f5;font-weight:700;font-size:10.5px;writing-mode:vertical-rl;transform:rotate(180deg);
@@ -199,7 +204,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 52</span>
+    <span style="color:#c3c8ce;">· build 53</span>
   </footer>
 </div>
 
@@ -1049,7 +1054,17 @@ function renderMatrixPreview(){
   html += '</tr>';
   // row 2: output categories
   html += '<tr>';
-  outCats.forEach(c=>{ html += `<th class="colcat" colspan="${c.items.length}">${escapeHtml(c.name)}</th>`; });
+  outCats.forEach(c=>{
+    // Category headers used to be plain nowrap text, which forced narrow (1-2 column) categories
+    // to stretch their whole column width to fit the label on one line. Now the label lives in an
+    // absolutely-positioned span (taken out of the table's width-calculation flow) so the column
+    // stays the standard width; if the label doesn't fit within its own colspan, it's left-aligned
+    // so it spills into the blank space to the right instead of widening the column.
+    const availW = c.items.length * 22;
+    const labelW = Math.ceil(measureTextWidth(c.name, '700 10.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif')) + 10;
+    const spillCls = labelW > availW ? 'spill' : 'fit';
+    html += `<th class="colcat" colspan="${c.items.length}"><span class="colcatLabel ${spillCls}">${escapeHtml(c.name)}</span></th>`;
+  });
   html += '</tr>';
   // row 3: output items (rotated)
   html += '<tr>';
