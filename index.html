@@ -210,7 +210,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 55</span>
+    <span style="color:#c3c8ce;">· build 56</span>
   </footer>
 </div>
 
@@ -860,21 +860,38 @@ function buildMatrixPdf(){
     rowCatColW = Math.max(rowCatColW, lines.length*textHCat*1.4 + 0.16);
   });
   let colCatBandH = 0.34;
-  outCats.forEach(cat=>{
-    const bandLen = Math.max(colW, cat.items.length*colW) - 0.06;
-    const lines = wrapLabel(cat.name, s=>pdfTextWidth(s, textHCat, true), bandLen);
-    // A category with only 1-2 columns can force its name into 3+ cramped stacked lines, which
-    // also stretches this shared band height for every OTHER category too. Past 2 lines, stop
-    // wrapping and instead render it as one line that spills into the blank space to the right
-    // (mirrors the same fix already applied to the Full matrix preview modal) — the band height
-    // then only reflects genuinely-needed single/double-line categories, not the narrow outlier.
-    cat._spill = lines.length > 2;
-    colCatBandH = Math.max(colCatBandH, (cat._spill ? 1 : lines.length)*textHCat*1.4 + 0.16);
-  });
+  { let accCols = 0;
+    outCats.forEach(cat=>{
+      const bandLen = Math.max(colW, cat.items.length*colW) - 0.06;
+      const lines = wrapLabel(cat.name, s=>pdfTextWidth(s, textHCat, true), bandLen);
+      // A category with only 1-2 columns can force its name into 3+ cramped stacked lines, which
+      // also stretches this shared band height for every OTHER category too. Past 2 lines, stop
+      // wrapping and instead render it as one line that spills into the blank space to the right
+      // (mirrors the same fix already applied to the Full matrix preview modal) — the band height
+      // then only reflects genuinely-needed single/double-line categories, not the narrow outlier.
+      cat._spill = lines.length > 2;
+      cat._colStart = accCols;
+      colCatBandH = Math.max(colCatBandH, (cat._spill ? 1 : lines.length)*textHCat*1.4 + 0.16);
+      accCols += cat.items.length;
+    });
+  }
   const sysInputsBandW = 0.34, sysOutputsBandH = 0.40;
   const X0=0, X1=X0+sysInputsBandW, X2=X1+rowCatColW, X3=X2+numColW, X4=X3+labelColW;
   const numCols = outputCols.length;
   const X5 = X4 + numCols*colW;
+  // If the LAST (rightmost) category's name had to spill past its own narrow column(s) (see
+  // above), the spilled text would otherwise float past the drawing's own right border with no
+  // frame around it — wrong for a printed/plotted drawing. Extend the outer frame just far enough
+  // to enclose it (the real data grid itself stays exactly numCols*colW wide; this only widens the
+  // blank margin outside it).
+  const lastCat = outCats[outCats.length-1];
+  let frameExtraW = 0;
+  if(lastCat && lastCat._spill){
+    const lastCatLeftX = X4 + lastCat._colStart*colW;
+    const lastLabelW = pdfTextWidth(lastCat.name, textHCat, true);
+    frameExtraW = Math.max(0, (lastCatLeftX + 0.03 + lastLabelW + 0.06) - X5);
+  }
+  const X5f = X5 + frameExtraW;
   const headerStackH = headerBandH + colCatBandH + sysOutputsBandH;
   function colLeftX(j){ return X4+j*colW; }
   function colCenterX(j){ return X4+(j+0.5)*colW; }
@@ -897,21 +914,21 @@ function buildMatrixPdf(){
     let chosen = null;
     for(const s of SHEET_SIZES){
       const usableW = s.w - 2*MARGIN_IN, usableH = s.h - 2*MARGIN_IN;
-      const fitScale = Math.min(1, usableW/X5, usableH/naturalH);
+      const fitScale = Math.min(1, usableW/X5f, usableH/naturalH);
       if(fitScale >= 1 || fitScale*textHRow >= MIN_TEXT_H_IN){ chosen = {size:s, scale:fitScale}; break; }
     }
     if(!chosen){
       // doesn't comfortably fit even on the largest sheet — shrink further, but stay one page.
       const s = SHEET_SIZES[SHEET_SIZES.length-1];
       const usableW = s.w - 2*MARGIN_IN, usableH = s.h - 2*MARGIN_IN;
-      chosen = {size:s, scale: Math.min(usableW/X5, usableH/naturalH)};
+      chosen = {size:s, scale: Math.min(usableW/X5f, usableH/naturalH)};
     }
     PAGE_W_IN = chosen.size.w; PAGE_H_IN = chosen.size.h; scale = chosen.scale;
   }
   const usableW_IN = PAGE_W_IN - 2*MARGIN_IN, usableH_IN = PAGE_H_IN - 2*MARGIN_IN;
   const marginPt = MARGIN_IN*72;
   const usableWpt = usableW_IN*72, usableHpt = usableH_IN*72;
-  const xOffset = Math.max(0, (usableWpt - X5*scale*72)/2); // center when narrower than the sheet
+  const xOffset = Math.max(0, (usableWpt - X5f*scale*72)/2); // center when narrower than the sheet
   const yOffset = Math.max(0, (usableHpt - naturalH*scale*72)/2); // center when shorter than the sheet
   function toPtX(x_in){ return marginPt + xOffset + x_in*scale*72; }
   function toPtY(y_in){ return marginPt + yOffset + y_in*scale*72; }
@@ -957,8 +974,13 @@ function buildMatrixPdf(){
     // grid: outer border + the X4 spine (divides row info from data columns, full height).
     // X1/X2/X3 and Y2/Y3 are internal dividers that only apply within the row area / column-header
     // area respectively — extending them into the blank corner block just draws an empty grid there.
-    [X0,X4,X5].forEach(x=> line(x,Y0,x,Y4));
-    [Y0,Y1,Y4].forEach(y=> line(X0,y,X5,y));
+    // The outer right border sits at X5f rather than X5 whenever the last category's name spilled
+    // past the real data grid (see X5f above) — otherwise that spilled text would float past the
+    // drawing's own border with nothing framing it. The blank strip between X5 and X5f is left
+    // undivided (no extra column/row lines drawn inside it) on purpose, since it isn't a real column.
+    [X0,X4].forEach(x=> line(x,Y0,x,Y4));
+    line(X5f,Y0,X5f,Y4);
+    [Y0,Y1,Y4].forEach(y=> line(X0,y,X5f,y));
     // row dividers + row-category dividers (this page only) — confined to the row area (Y0..Y1)
     [X1,X2,X3].forEach(x=> line(x,Y0,x,Y1));
     for(let i=1;i<rowCount;i++) line(X2, rowTopY(i), X5, rowTopY(i));
@@ -1304,16 +1326,20 @@ function buildDxf(){
 
   // dynamic column-category band height similarly
   let colCatBandH = 0.34;
-  outCats.forEach(cat=>{
-    const bandLen = Math.max(colW, cat.items.length*colW) - 0.06;
-    const lines = wrapLabel(cat.name, textHCat*charW, bandLen);
-    // Same fix as the PDF export / Full matrix preview: a 1-2 column category can force its name
-    // into 3+ cramped stacked lines, which also stretches this shared band height for every OTHER
-    // category. Past 2 lines, stop wrapping and render it as one line that spills into the blank
-    // space to the right instead.
-    cat._spill = lines.length > 2;
-    colCatBandH = Math.max(colCatBandH, (cat._spill ? 1 : lines.length)*textHCat*1.4 + 0.16);
-  });
+  { let accCols = 0;
+    outCats.forEach(cat=>{
+      const bandLen = Math.max(colW, cat.items.length*colW) - 0.06;
+      const lines = wrapLabel(cat.name, textHCat*charW, bandLen);
+      // Same fix as the PDF export / Full matrix preview: a 1-2 column category can force its name
+      // into 3+ cramped stacked lines, which also stretches this shared band height for every OTHER
+      // category. Past 2 lines, stop wrapping and render it as one line that spills into the blank
+      // space to the right instead.
+      cat._spill = lines.length > 2;
+      cat._colStart = accCols;
+      colCatBandH = Math.max(colCatBandH, (cat._spill ? 1 : lines.length)*textHCat*1.4 + 0.16);
+      accCols += cat.items.length;
+    });
+  }
 
   const sysInputsBandW = 0.34;
   const sysOutputsBandH = 0.40;
@@ -1324,7 +1350,18 @@ function buildDxf(){
   const X2 = X1 + rowCatColW;
   const X3 = X2 + numColW;
   const X4 = X3 + labelColW;         // start of data grid
-  const X5 = X4 + numCols*colW;      // right edge
+  const X5 = X4 + numCols*colW;      // right edge of the real data grid
+  // Same outer-frame extension as the PDF export: if the last category's name spilled past its
+  // own narrow column(s), extend the drawing's outer border far enough to enclose it instead of
+  // leaving it floating past the frame with nothing around it.
+  const lastCat = outCats[outCats.length-1];
+  let frameExtraW = 0;
+  if(lastCat && lastCat._spill){
+    const lastCatLeftX = X4 + lastCat._colStart*colW;
+    const lastLabelW = lastCat.name.length*textHCat*charW;
+    frameExtraW = Math.max(0, (lastCatLeftX + 0.03 + lastLabelW + 0.06) - X5);
+  }
+  const X5f = X5 + frameExtraW;      // outer-frame right edge (>= X5)
 
   const totalDataHeight = numRows*rowH;
   const Y0 = 0;
@@ -1346,8 +1383,12 @@ function buildDxf(){
   // outer border + the X4 spine (divides row info from data columns, full height). X1/X2/X3 and
   // Y2/Y3 are internal dividers that only apply within the row area / column-header area
   // respectively — extending them into the blank corner block just draws an empty grid there.
-  [X0,X4,X5].forEach(x=> dxf.line(x,Y0,x,Y4,LAYER_GRID));
-  [Y0,Y1,Y4].forEach(y=> dxf.line(X0,y,X5,y,LAYER_GRID));
+  // The outer right border sits at X5f rather than X5 whenever the last category's name spilled
+  // past the real data grid — see X5f above. The strip between X5 and X5f is left undivided (no
+  // extra row/column lines inside it) since it isn't a real column.
+  [X0,X4].forEach(x=> dxf.line(x,Y0,x,Y4,LAYER_GRID));
+  dxf.line(X5f,Y0,X5f,Y4,LAYER_GRID);
+  [Y0,Y1,Y4].forEach(y=> dxf.line(X0,y,X5f,y,LAYER_GRID));
 
   // interior row dividers (data rows), spanning numCol+labelCol+data grid
   for(let i=1;i<numRows;i++){ dxf.line(X2, rowTopY(i), X5, rowTopY(i), LAYER_GRID); }
