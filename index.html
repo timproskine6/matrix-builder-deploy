@@ -210,7 +210,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 59</span>
+    <span style="color:#c3c8ce;">· build 60</span>
   </footer>
 </div>
 
@@ -996,7 +996,11 @@ function buildMatrixPdf(){
     // so the category-name band's own top/bottom borders form a continuous line matching the outer
     // frame above/below it, instead of stopping short and leaving a notch in the border.
     [Y2,Y3].forEach(y=> line(X4,y,X5f,y));
-    for(let j=1;j<numCols;j++) line(colLeftX(j), Y0, colLeftX(j), Y2);
+    // j<=numCols (not j<numCols) so the LAST real column also gets its own right-hand divider —
+    // previously that boundary coincided with the outer border (X5) so a separate line wasn't
+    // needed there, but the outer border has since moved out to X5f, leaving that edge undrawn.
+    // Stops at Y2 (not Y3) so it doesn't cut through a centered, spilled category-name label.
+    for(let j=1;j<=numCols;j++) line(colLeftX(j), Y0, colLeftX(j), Y2);
     { let acc=0; outCats.forEach((cat,ci)=>{ acc+=cat.items.length; if(ci<outCats.length-1){ const x=X4+acc*colW; line(x,Y2,x,Y3); } }); }
 
     // titles (repeated on every page)
@@ -1420,7 +1424,11 @@ function buildDxf(){
   // Y2/Y3 which also extend into the blank margin (X5..X5f) so the category-name band's own
   // top/bottom borders form a continuous line matching the outer frame instead of leaving a notch.
   [Y2,Y3].forEach(y=> dxf.line(X4,y,X5f,y,LAYER_GRID));
-  for(let j=1;j<numCols;j++){ dxf.line(colLeftX(j),Y0,colLeftX(j),Y2,LAYER_GRID); }
+  // j<=numCols (not j<numCols) so the LAST real column also gets its own right-hand divider —
+  // previously that boundary coincided with the outer border (X5) so a separate line wasn't
+  // needed there, but the outer border has since moved out to X5f, leaving that edge undrawn.
+  // Stops at Y2 (not Y3) so it doesn't cut through a centered, spilled category-name label.
+  for(let j=1;j<=numCols;j++){ dxf.line(colLeftX(j),Y0,colLeftX(j),Y2,LAYER_GRID); }
   // column-category interior boundaries, spanning just the col-cat band
   { let acc=0;
     outCats.forEach((cat,ci)=>{
