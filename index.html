@@ -222,7 +222,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 69</span>
+    <span style="color:#c3c8ce;">· build 70</span>
   </footer>
 </div>
 
@@ -1279,15 +1279,44 @@ function dxfEscape(s){
   return String(s).replace(/[\r\n]+/g,' ');
 }
 
+// Name of the dedicated text style every TEXT entity references (see DxfWriter's TABLES section).
+const DXF_TEXT_STYLE = 'CEM_TEXT';
 class DxfWriter{
-  constructor(){ this.parts = []; this.parts.push('0\nSECTION\n2\nENTITIES\n'); }
+  constructor(){
+    this.parts = [];
+    // A DXF with only an ENTITIES section has no LAYER or STYLE definitions of its own, so on
+    // import AutoCAD falls back to whatever layers/styles already exist (or auto-creates) in the
+    // host drawing — including their linetype and font. If the host drawing happens to already
+    // have layers named the same as ours with a non-continuous linetype (dashed/center/hidden),
+    // our lines inherit that and can look like a chaotic mess of ticks instead of clean solid
+    // lines; and text renders in whatever font "Standard" (or whatever style gets auto-created)
+    // happens to mean there, usually the blocky default SHX font, with no clean way to change just
+    // this drawing's text without affecting everything else using the same shared style. Defining
+    // our own uniquely-named (CEM_-prefixed) layers with an explicit continuous linetype, and a
+    // dedicated text style pointing at a real TrueType font, makes the import self-contained and
+    // predictable regardless of what's already in the target drawing.
+    this.parts.push(
+      '0\nSECTION\n2\nTABLES\n' +
+        '0\nTABLE\n2\nSTYLE\n70\n1\n' +
+          `0\nSTYLE\n2\n${DXF_TEXT_STYLE}\n70\n0\n40\n0\n41\n1\n50\n0\n71\n0\n42\n1\n3\narial.ttf\n4\n\n` +
+        '0\nENDTAB\n' +
+        '0\nTABLE\n2\nLAYER\n70\n4\n' +
+          '0\nLAYER\n2\nCEM_GRID\n70\n0\n62\n7\n6\nCONTINUOUS\n' +
+          '0\nLAYER\n2\nCEM_TEXT\n70\n0\n62\n7\n6\nCONTINUOUS\n' +
+          '0\nLAYER\n2\nCEM_MARKS\n70\n0\n62\n7\n6\nCONTINUOUS\n' +
+          '0\nLAYER\n2\nCEM_TITLE\n70\n0\n62\n7\n6\nCONTINUOUS\n' +
+        '0\nENDTAB\n' +
+      '0\nENDSEC\n' +
+      '0\nSECTION\n2\nENTITIES\n'
+    );
+  }
   finish(){ this.parts.push('0\nENDSEC\n0\nEOF\n'); return this.parts.join(''); }
   line(x1,y1,x2,y2,layer){
-    this.parts.push(`0\nLINE\n8\n${layer}\n10\n${fmt(x1)}\n20\n${fmt(y1)}\n30\n0\n11\n${fmt(x2)}\n21\n${fmt(y2)}\n31\n0\n`);
+    this.parts.push(`0\nLINE\n8\n${layer}\n6\nCONTINUOUS\n10\n${fmt(x1)}\n20\n${fmt(y1)}\n30\n0\n11\n${fmt(x2)}\n21\n${fmt(y2)}\n31\n0\n`);
   }
   text(x,y,h,rot,str,layer){
     str = dxfEscape(str);
-    this.parts.push(`0\nTEXT\n8\n${layer}\n10\n${fmt(x)}\n20\n${fmt(y)}\n30\n0\n40\n${fmt(h)}\n1\n${str}\n50\n${fmt(rot)}\n`);
+    this.parts.push(`0\nTEXT\n8\n${layer}\n10\n${fmt(x)}\n20\n${fmt(y)}\n30\n0\n40\n${fmt(h)}\n1\n${str}\n50\n${fmt(rot)}\n7\n${DXF_TEXT_STYLE}\n`);
   }
   filledDot(x,y,d,layer){
     // Old-style POLYLINE with two coincident vertices and constant width = filled circle in AutoCAD.
@@ -1358,10 +1387,12 @@ function pdfTextWidth(str, fontSize, bold){
 
 function buildDxf(){
   const dxf = new DxfWriter();
-  const LAYER_GRID = 'GRID';
-  const LAYER_TEXT = 'TEXT';
-  const LAYER_DOT  = 'MARKS';
-  const LAYER_TITLE= 'TITLE';
+  // CEM_-prefixed (not just "GRID"/"TEXT"/etc.) so these never collide with same-named layers that
+  // might already exist in whatever drawing this gets inserted into — see the DxfWriter comment.
+  const LAYER_GRID = 'CEM_GRID';
+  const LAYER_TEXT = 'CEM_TEXT';
+  const LAYER_DOT  = 'CEM_MARKS';
+  const LAYER_TITLE= 'CEM_TITLE';
 
   // Inputs with zero outputs selected are dropped from the DXF entirely (they contribute nothing
   // to a cause & effect drawing) and the remaining rows are renumbered sequentially, 1..N.
