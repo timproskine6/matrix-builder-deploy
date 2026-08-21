@@ -222,7 +222,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 68</span>
+    <span style="color:#c3c8ce;">· build 69</span>
   </footer>
 </div>
 
@@ -805,12 +805,20 @@ function makePdfPageBuilder(){
       ops.push(`BT ${font} ${fmtPt(sizePt)} Tf ${mtx} Tm (${esc}) Tj ET`);
     },
     filledDot(cx,cy,r){
-      const k = 0.5523*r;
-      ops.push(`${fmtPt(cx-r)} ${fmtPt(cy)} m ` +
-        `${fmtPt(cx-r)} ${fmtPt(cy+k)} ${fmtPt(cx-k)} ${fmtPt(cy+r)} ${fmtPt(cx)} ${fmtPt(cy+r)} c ` +
-        `${fmtPt(cx+k)} ${fmtPt(cy+r)} ${fmtPt(cx+r)} ${fmtPt(cy+k)} ${fmtPt(cx+r)} ${fmtPt(cy)} c ` +
-        `${fmtPt(cx+r)} ${fmtPt(cy-k)} ${fmtPt(cx+k)} ${fmtPt(cy-r)} ${fmtPt(cx)} ${fmtPt(cy-r)} c ` +
-        `${fmtPt(cx-k)} ${fmtPt(cy-r)} ${fmtPt(cx-r)} ${fmtPt(cy-k)} ${fmtPt(cx-r)} ${fmtPt(cy)} c f`);
+      // Drawn as a many-sided straight-line polygon instead of the 4 cubic-Bezier arcs a true
+      // circle needs. Every real PDF viewer renders either one as a solid black disc, but PDF-to-
+      // CAD converters (e.g. AutoCAD's PDFIMPORT, even with "convert solid fills" enabled) are
+      // well known to fail to turn a Bezier-curved fill into a hatch — the outline imports but
+      // stays unfilled. Straight-line polygon fills convert reliably there, and at this dot's
+      // printed size (~0.1in) a 24-gon is visually indistinguishable from a true circle.
+      const N = 24;
+      let s = '';
+      for(let i=0;i<N;i++){
+        const a = (2*Math.PI*i)/N;
+        const x = cx + r*Math.cos(a), y = cy + r*Math.sin(a);
+        s += `${fmtPt(x)} ${fmtPt(y)} ${i===0?'m':'l'} `;
+      }
+      ops.push(s + 'h f');
     },
     toString(){ return ops.join('\n'); }
   };
