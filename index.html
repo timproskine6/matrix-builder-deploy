@@ -134,8 +134,11 @@
      engines (Safari's table intrinsic-sizing pass can resolve a percentage width against the wrong
      containing block there). Living entirely outside the table's DOM, the overlay can't feed back
      into column sizing in any browser, while still being positioned pixel-for-pixel over the real
-     header band once it's rendered. */
-  .colcatOverlay{position:absolute;display:flex;align-items:center;white-space:nowrap;
+     header band once it's rendered. A label too wide for its own band is wrapped onto multiple
+     centered lines (mirroring the PDF/DXF export's category-header wrapping) rather than left to
+     overflow past the band's edge, which used to visibly collide with the next category's label. */
+  .colcatOverlay{position:absolute;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;line-height:1.3;
     font-weight:700;font-size:10.5px;padding:0 5px;box-sizing:border-box;pointer-events:none;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#111;}
   td.rownum{width:24px;background:#fafbfc;font-size:10px;color:var(--ink-soft);}
@@ -210,7 +213,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 65</span>
+    <span style="color:#c3c8ce;">· build 66</span>
   </footer>
 </div>
 
@@ -1176,10 +1179,27 @@ function renderMatrixPreview(){
   // ---- category-header overlay labels ----
   // Each th.colcat was rendered empty on purpose (see above). Now that the table has real layout
   // (the modal must already be open/visible — see the btnFullView handler), measure each one's
-  // actual rendered box and draw its label as a separate absolutely-positioned div layered on top,
-  // living outside the table entirely so it can never feed back into column sizing. When a label
-  // is too wide for its own (narrow) category, it's left-aligned and simply spills visually into
-  // the blank space to the right instead of stretching that column.
+  // actual rendered box, word-wrap its label to fit that box's width (same wrapLabel() the PDF/DXF
+  // exporters use, so long names never overflow into a neighboring category's label — they used to
+  // spill rightward and visibly collide), then draw the (possibly multi-line) label as a separate
+  // absolutely-positioned div layered on top, living outside the table entirely so it can never
+  // feed back into column sizing.
+  const catFont = '700 10.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+  const measureCat = s => measureTextWidth(s, catFont);
+  const catLines = outCats.map((c,ci)=>{
+    const th = host.querySelector(`th.colcat[data-catidx="${ci}"]`);
+    const w = th ? th.getBoundingClientRect().width : 0;
+    return wrapLabel(c.name, measureCat, Math.max(10, w - 10));
+  });
+  const lineH = 13; // px per wrapped line, matches .colcatOverlay's line-height at font-size 10.5px
+  const maxLines = Math.max(1, ...catLines.map(ls=>ls.length));
+  const colcatH = Math.max(22, maxLines*lineH + 10);
+  outCats.forEach((c,ci)=>{
+    const th = host.querySelector(`th.colcat[data-catidx="${ci}"]`);
+    if(th) th.style.height = colcatH + 'px';
+  });
+  // Row heights just changed (taller categories push row 3's rotated headers further down), so
+  // re-measure every rect fresh rather than reusing anything captured before the height update.
   const hostRect = host.getBoundingClientRect();
   outCats.forEach((c,ci)=>{
     const th = host.querySelector(`th.colcat[data-catidx="${ci}"]`);
@@ -1187,16 +1207,13 @@ function renderMatrixPreview(){
     const r = th.getBoundingClientRect();
     const left = r.left - hostRect.left + host.scrollLeft;
     const top = r.top - hostRect.top + host.scrollTop;
-    const labelW = Math.ceil(measureTextWidth(c.name, '700 10.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif')) + 10;
-    const fits = labelW <= r.width;
     const ov = document.createElement('div');
     ov.className = 'colcatOverlay';
     ov.style.left = left + 'px';
     ov.style.top = top + 'px';
     ov.style.width = r.width + 'px';
     ov.style.height = r.height + 'px';
-    ov.style.justifyContent = fits ? 'center' : 'flex-start';
-    ov.textContent = c.name;
+    ov.innerHTML = catLines[ci].map(escapeHtml).join('<br>');
     host.appendChild(ov);
   });
 }
