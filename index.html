@@ -210,7 +210,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 63</span>
+    <span style="color:#c3c8ce;">· build 64</span>
   </footer>
 </div>
 
@@ -843,8 +843,13 @@ function buildMatrixPdf(){
   // ---- geometry, in inches — same overall layout as Export DXF, but sizing/centering here uses
   // real Helvetica glyph metrics (pdfTextWidth) instead of a flat charWidth average, since the PDF
   // is guaranteed to render in actual Helvetica on every compliant viewer ----
-  const rowH=0.13, colW=0.24, textHRow=0.09, textHCol=0.10, textHCat=0.085, textHTitle=0.20;
+  const colW=0.24, textHRow=0.09, textHCol=0.10, textHCat=0.085, textHTitle=0.20;
   const capHRatio = 0.718; // Helvetica cap height, used to vertically center rotated single-line text
+  // rowH is set so the row label's own vertical gap (between its cap-height and the row's top/
+  // bottom dividing lines) equals the column header's horizontal gap to ITS dividing lines —
+  // (colW - textHCol*capHRatio)/2 — rather than an arbitrary row height. Both texts are centered
+  // in their band the same way (offset by capHRatio*0.5), so this keeps the two gaps identical.
+  const rowH = textHRow*capHRatio + colW - textHCol*capHRatio;
   // number column is sized to snugly fit the longest row number (e.g. "34"), not a flat guess —
   // otherwise short numbers leave a wide dead gap before the label column's dividing line.
   const maxNumW = Math.max(...inputRows.map(r=>pdfTextWidth(String(r.drawNum), textHRow, false)));
@@ -1310,12 +1315,16 @@ function buildDxf(){
   if(numRows===0 || numCols===0){ alert('Add at least one input with at least one output selected (and at least one output) before exporting.'); return null; }
 
   // ---- sizing constants (inches) ----
-  const rowH = 0.13;
   const colW = 0.24;
   const textHRow = 0.09;      // row number / row label text height
   const textHCol = 0.10;      // column header text height (must be < colW)
   const textHCat = 0.085;     // category label text height
   const textHTitle = 0.20;    // SYSTEM INPUTS / SYSTEM OUTPUTS title text height
+  const capHRatio = 0.718;    // same Helvetica cap-height ratio used in the PDF exporter's centering math
+  // rowH is set so the row label's own vertical gap (row cap-height to the row's top/bottom
+  // dividing lines) equals the column header's horizontal gap to its dividing lines — see the
+  // matching comment in buildMatrixPdf() — rather than an arbitrary row height.
+  const rowH = textHRow*capHRatio + colW - textHCol*capHRatio;
   // Approximate char-width-to-height ratio for a standard CAD font. This is a deliberately
   // generous over-estimate (real "Standard"/txt.shx rendering in AutoCAD runs narrower than
   // this for most letters) so every band/column computed from it has real headroom — text
