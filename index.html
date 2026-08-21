@@ -126,12 +126,18 @@
   table.gridtable th.colhead{height:230px;position:relative;background:#fff;padding:4px;vertical-align:bottom;text-align:center;}
   th.colhead .rot{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;font-weight:600;
     font-size:10px;display:inline-block;}
-  table.gridtable th.colcat{background:#f0f2f5;font-weight:700;font-size:10.5px;padding:0;white-space:nowrap;
-    position:relative;height:22px;overflow:visible;}
-  table.gridtable th.colcat .colcatLabel{position:absolute;left:0;top:0;height:100%;min-width:100%;
-    display:flex;align-items:center;padding:0 5px;white-space:nowrap;box-sizing:border-box;}
-  table.gridtable th.colcat .colcatLabel.fit{justify-content:center;}
-  table.gridtable th.colcat .colcatLabel.spill{justify-content:flex-start;}
+  table.gridtable th.colcat{background:#f0f2f5;height:22px;}
+  /* Category-header labels are drawn as a separate overlay layer (see .colcatOverlay below), NOT
+     as text content inside th.colcat. A narrow (1-2 column) category's name would otherwise force
+     the browser's table auto-layout to stretch that column to fit the whole label on one line —
+     and doing this via an absolutely-positioned child *inside* the table cell isn't reliable across
+     engines (Safari's table intrinsic-sizing pass can resolve a percentage width against the wrong
+     containing block there). Living entirely outside the table's DOM, the overlay can't feed back
+     into column sizing in any browser, while still being positioned pixel-for-pixel over the real
+     header band once it's rendered. */
+  .colcatOverlay{position:absolute;display:flex;align-items:center;white-space:nowrap;
+    font-weight:700;font-size:10.5px;padding:0 5px;box-sizing:border-box;pointer-events:none;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#111;}
   td.rownum{width:24px;background:#fafbfc;font-size:10px;color:var(--ink-soft);}
   table.gridtable td.rowlabel{text-align:left;padding:1px 3px;white-space:nowrap;font-size:10.5px;background:#fff;position:sticky;left:0;}
   table.gridtable td.rowcat{background:#f0f2f5;font-weight:700;font-size:10.5px;writing-mode:vertical-rl;transform:rotate(180deg);
@@ -204,7 +210,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 54</span>
+    <span style="color:#c3c8ce;">· build 55</span>
   </footer>
 </div>
 
@@ -746,8 +752,11 @@ document.getElementById('fileImport').addEventListener('change', (e)=>{
 });
 
 document.getElementById('btnFullView').addEventListener('click', ()=>{
-  renderMatrixPreview();
+  // Modal must be visible (laid out) BEFORE renderMatrixPreview() runs, since it measures real
+  // rendered cell positions to place the category-header overlay labels — a display:none table
+  // reports zero-size rects for everything.
   document.getElementById('matrixModal').classList.add('open');
+  renderMatrixPreview();
 });
 document.getElementById('closeMatrixModal').addEventListener('click', ()=>{
   document.getElementById('matrixModal').classList.remove('open');
@@ -1064,16 +1073,13 @@ function renderMatrixPreview(){
   html += '</tr>';
   // row 2: output categories
   html += '<tr>';
-  outCats.forEach(c=>{
+  outCats.forEach((c,ci)=>{
     // Category headers used to be plain nowrap text, which forced narrow (1-2 column) categories
-    // to stretch their whole column width to fit the label on one line. Now the label lives in an
-    // absolutely-positioned span (taken out of the table's width-calculation flow) so the column
-    // stays the standard width; if the label doesn't fit within its own colspan, it's left-aligned
-    // so it spills into the blank space to the right instead of widening the column.
-    const availW = c.items.length * 22;
-    const labelW = Math.ceil(measureTextWidth(c.name, '700 10.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif')) + 10;
-    const spillCls = labelW > availW ? 'spill' : 'fit';
-    html += `<th class="colcat" colspan="${c.items.length}"><span class="colcatLabel ${spillCls}">${escapeHtml(c.name)}</span></th>`;
+    // to stretch their whole column width to fit the label on one line. The label itself is now
+    // drawn afterward as a separate overlay (see the measurement pass below, right after
+    // host.innerHTML is set) instead of living inside this cell, so it can never influence the
+    // table's column-width calculation — the cell itself stays empty.
+    html += `<th class="colcat" colspan="${c.items.length}" data-catidx="${ci}"></th>`;
   });
   html += '</tr>';
   // row 3: output items (rotated)
@@ -1118,6 +1124,33 @@ function renderMatrixPreview(){
   host.innerHTML = html;
   // add SYSTEM INPUTS vertical band by inserting a leftmost sticky title column via CSS trick:
   // (kept simple: rowcat column carries the visual grouping; overall title shown in header bar)
+
+  // ---- category-header overlay labels ----
+  // Each th.colcat was rendered empty on purpose (see above). Now that the table has real layout
+  // (the modal must already be open/visible — see the btnFullView handler), measure each one's
+  // actual rendered box and draw its label as a separate absolutely-positioned div layered on top,
+  // living outside the table entirely so it can never feed back into column sizing. When a label
+  // is too wide for its own (narrow) category, it's left-aligned and simply spills visually into
+  // the blank space to the right instead of stretching that column.
+  const hostRect = host.getBoundingClientRect();
+  outCats.forEach((c,ci)=>{
+    const th = host.querySelector(`th.colcat[data-catidx="${ci}"]`);
+    if(!th) return;
+    const r = th.getBoundingClientRect();
+    const left = r.left - hostRect.left + host.scrollLeft;
+    const top = r.top - hostRect.top + host.scrollTop;
+    const labelW = Math.ceil(measureTextWidth(c.name, '700 10.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif')) + 10;
+    const fits = labelW <= r.width;
+    const ov = document.createElement('div');
+    ov.className = 'colcatOverlay';
+    ov.style.left = left + 'px';
+    ov.style.top = top + 'px';
+    ov.style.width = r.width + 'px';
+    ov.style.height = r.height + 'px';
+    ov.style.justifyContent = fits ? 'center' : 'flex-start';
+    ov.textContent = c.name;
+    host.appendChild(ov);
+  });
 }
 
 /* ============================= DXF EXPORT ============================= */
