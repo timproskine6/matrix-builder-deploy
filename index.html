@@ -210,7 +210,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 56</span>
+    <span style="color:#c3c8ce;">· build 57</span>
   </footer>
 </div>
 
@@ -887,9 +887,12 @@ function buildMatrixPdf(){
   const lastCat = outCats[outCats.length-1];
   let frameExtraW = 0;
   if(lastCat && lastCat._spill){
+    // The label is centered within the full span from the category's own left edge out to the
+    // extended frame (see rendering below), so the frame needs enough room for the label plus
+    // margin on BOTH sides, not just past a left-aligned start.
     const lastCatLeftX = X4 + lastCat._colStart*colW;
     const lastLabelW = pdfTextWidth(lastCat.name, textHCat, true);
-    frameExtraW = Math.max(0, (lastCatLeftX + 0.03 + lastLabelW + 0.06) - X5);
+    frameExtraW = Math.max(0, (lastCatLeftX + lastLabelW + 0.12) - X5);
   }
   const X5f = X5 + frameExtraW;
   const headerStackH = headerBandH + colCatBandH + sysOutputsBandH;
@@ -1008,7 +1011,12 @@ function buildMatrixPdf(){
     { let acc=0; outCats.forEach(cat=>{
         const xL=X4+acc*colW, xR=X4+(acc+cat.items.length)*colW;
         if(cat._spill){
-          text(xL+0.03, (Y2+Y3)/2 - textHCat*capHRatio*0.5, textHCat, 0, cat.name, true);
+          // Centered within the full span from this category's left edge out to the extended
+          // outer frame (X5f), not left-aligned — the frame widening above already reserves
+          // enough room on both sides for this.
+          const labelW = pdfTextWidth(cat.name, textHCat, true);
+          const cx = (xL+X5f)/2;
+          text(cx-labelW/2, (Y2+Y3)/2 - textHCat*capHRatio*0.5, textHCat, 0, cat.name, true);
         } else {
           placeHorizontalCentered((xL+xR)/2, (Y2+Y3)/2, (xR-xL)-0.06, cat.name, textHCat, true);
         }
@@ -1357,9 +1365,12 @@ function buildDxf(){
   const lastCat = outCats[outCats.length-1];
   let frameExtraW = 0;
   if(lastCat && lastCat._spill){
+    // The label is centered within the full span from the category's own left edge out to the
+    // extended frame (see rendering below), so the frame needs enough room for the label plus
+    // margin on BOTH sides, not just past a left-aligned start.
     const lastCatLeftX = X4 + lastCat._colStart*colW;
     const lastLabelW = lastCat.name.length*textHCat*charW;
-    frameExtraW = Math.max(0, (lastCatLeftX + 0.03 + lastLabelW + 0.06) - X5);
+    frameExtraW = Math.max(0, (lastCatLeftX + lastLabelW + 0.12) - X5);
   }
   const X5f = X5 + frameExtraW;      // outer-frame right edge (>= X5)
 
@@ -1437,9 +1448,11 @@ function buildDxf(){
     outCats.forEach(cat=>{
       const xL = X4+acc*colW, xR = X4+(acc+cat.items.length)*colW;
       if(cat._spill){
-        // Too narrow to wrap the name cleanly — single line, left-aligned, spilling into the
-        // blank space to the right instead of forcing this whole band taller.
-        dxf.text(xL+0.03, (Y2+Y3)/2 - textHCat*0.36, textHCat, 0, cat.name, LAYER_TEXT);
+        // Too narrow to wrap the name cleanly — single line, centered within the full span from
+        // this category's left edge out to the extended outer frame (X5f), not left-aligned.
+        const labelW = cat.name.length*textHCat*charW;
+        const cx = (xL+X5f)/2;
+        dxf.text(cx-labelW/2, (Y2+Y3)/2 - textHCat*0.36, textHCat, 0, cat.name, LAYER_TEXT);
       } else {
         placeHorizontalWrapped(Y2, Y3, (xL+xR)/2, (xR-xL)-0.06, cat.name, textHCat, LAYER_TEXT);
       }
