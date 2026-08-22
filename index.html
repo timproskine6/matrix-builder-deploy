@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 82</span>
+    <span style="color:#c3c8ce;">· build 83</span>
   </footer>
 </div>
 
@@ -1063,9 +1063,19 @@ function buildMatrixPdf(){
     // past the real data grid (see X5f above) — otherwise that spilled text would float past the
     // drawing's own border with nothing framing it. The blank strip between X5 and X5f is left
     // undivided (no extra column/row lines drawn inside it) on purpose, since it isn't a real column.
-    [X0,X4].forEach(x=> line(x,Y0,x,Y4));
+    line(X0,Y0,X0,Y4);
+    // X4's outer-left border skips the fan band (Y1b..Y2) — the first diagonal fan line already
+    // starts at this exact corner (X4,Y1b) and rises to (X4+fanH,Y2), so a straight vertical
+    // continuing through that band as well just doubled up on the diagonal right next to where the
+    // column-header text begins.
+    line(X4,Y0,X4,Y1b);
+    line(X4,Y2,X4,Y4);
     line(X5f,Y0,X5f,Y4);
-    [Y0,Y1,Y4].forEach(y=> line(X0,y,X5f,y));
+    // The Y1 seam (bottom of the letter-code row / top of row 1) is confined to the real content
+    // width (X0..X5) — unlike Y0/Y4, it has no reason to cross the blank margin out to X5f since
+    // nothing on either side of it exists out there.
+    [Y0,Y4].forEach(y=> line(X0,y,X5f,y));
+    line(X0,Y1,X5,Y1);
     // top seam of the SYSTEM INPUTS title band, confined to the row-info section's own width
     // (X0..X4) — analogous to the Y2/Y3 seams on the column side, which are similarly confined to
     // their own section's width instead of running the full outer-frame width.
@@ -1748,15 +1758,26 @@ function buildDxf(){
   function colCenterX(j){ return (colLeftX(j)+colRightX(j))/2; }
 
   // ================= GRID LINES =================
+  const Y1b = Y1+letterRowH; // top of the letter-code row / bottom seam the diagonal fan rises from
   // outer border + the X4 spine (divides row info from data columns, full height). X1/X2/X3 and
   // Y2/Y3 are internal dividers that only apply within the row area / column-header area
   // respectively — extending them into the blank corner block just draws an empty grid there.
   // The outer right border sits at X5f rather than X5 whenever the last category's name spilled
   // past the real data grid — see X5f above. The strip between X5 and X5f is left undivided (no
   // extra row/column lines inside it) since it isn't a real column.
-  [X0,X4].forEach(x=> dxf.line(x,Y0,x,Y4,LAYER_GRID));
+  dxf.line(X0,Y0,X0,Y4,LAYER_GRID);
+  // X4's outer-left border skips the fan band (Y1b..Y2) — the first diagonal fan line already
+  // starts at this exact corner (X4,Y1b) and rises to (X4+fanH,Y2), so a straight vertical
+  // continuing through that band as well just doubled up on the diagonal right next to where the
+  // column-header text begins.
+  dxf.line(X4,Y0,X4,Y1b,LAYER_GRID);
+  dxf.line(X4,Y2,X4,Y4,LAYER_GRID);
   dxf.line(X5f,Y0,X5f,Y4,LAYER_GRID);
-  [Y0,Y1,Y4].forEach(y=> dxf.line(X0,y,X5f,y,LAYER_GRID));
+  // The Y1 seam (bottom of the letter-code row / top of row 1) is confined to the real content
+  // width (X0..X5) — unlike Y0/Y4, it has no reason to cross the blank margin out to X5f since
+  // nothing on either side of it exists out there.
+  [Y0,Y4].forEach(y=> dxf.line(X0,y,X5f,y,LAYER_GRID));
+  dxf.line(X0,Y1,X5,Y1,LAYER_GRID);
   // top seam of the SYSTEM INPUTS title band, confined to the row-info section's own width
   // (X0..X4) — analogous to the Y2/Y3 seams on the column side, which are similarly confined to
   // their own section's width instead of running the full outer-frame width.
@@ -1783,7 +1804,6 @@ function buildDxf(){
   // Straight verticals only run through the data grid + letter-code row (Y0..Y1b) — above that,
   // the column dividers become the diagonal fan lines drawn below instead.
   // j<=numCols (not j<numCols) so the LAST real column also gets its own right-hand divider.
-  const Y1b = Y1+letterRowH; // top of the letter-code row / bottom seam the diagonal fan rises from
   for(let j=1;j<=numCols;j++){ dxf.line(colLeftX(j),Y0,colLeftX(j),Y1b,LAYER_GRID); }
   dxf.line(X4,Y1b,X5,Y1b,LAYER_GRID); // top seam of the letter-code row (bottom of the diagonal fan)
   // the diagonal fan itself: one 45° line per column boundary (numCols+1, including both outer
