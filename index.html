@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 75</span>
+    <span style="color:#c3c8ce;">· build 76</span>
   </footer>
 </div>
 
@@ -905,15 +905,19 @@ function buildMatrixPdf(){
   const letterRowH = 0.20;
   const fanH = Math.min(9.0, Math.max(0.6, (maxHeaderW + 0.16) * S45));
   const headerBandH = letterRowH + fanH;
-  // Floor is just enough for a genuinely short single-line name (plus its pad) — not an arbitrary
-  // half inch. With the category text now right-aligned tight against the numbers divider (X1),
-  // an oversized floor here used to leave dead blank space between the text and the drawing's own
-  // left border (X0) instead of actually shrinking the border in to meet it.
-  let rowCatColW = 0.3;
+  // Floor and per-category width are both sized off the text's actual rendered thickness (capH),
+  // not the generous h*1.4 stacking pitch — that pitch is only needed as the GAP BETWEEN wrapped
+  // lines when a name spans more than one, not as the width of the single outermost line, so using
+  // it even for the (overwhelmingly common) single-line case reserved far more room than the ink
+  // needs. With the category text right-aligned tight against the numbers divider (X1), that extra
+  // reserved width just became dead blank space between the text and the drawing's own left border
+  // (X0) — this sizes the band to the text plus one small pad instead.
+  const rowCatPad = 0.08;
+  let rowCatColW = textHCat*capHRatio + rowCatPad;
   inCats.forEach(cat=>{
     const bandLen = Math.max(rowH, cat.items.length*rowH) - 0.06;
     const lines = wrapLabel(cat.name, s=>pdfTextWidth(s, textHCat, true), bandLen);
-    rowCatColW = Math.max(rowCatColW, lines.length*textHCat*1.4 + 0.16);
+    rowCatColW = Math.max(rowCatColW, (lines.length-1)*textHCat*1.4 + textHCat*capHRatio + rowCatPad);
   });
   let colCatBandH = 0.34;
   { let accCols = 0;
@@ -1640,15 +1644,19 @@ function buildDxf(){
   const headerBandH = letterRowH + fanH;
 
   // dynamic row-category band width (wrap category names to fit each category's row-height span).
-  // Floor is just enough for a genuinely short single-line name (plus its pad) — not an arbitrary
-  // half inch. With the category text now right-aligned tight against the numbers divider (X1),
-  // an oversized floor here used to leave dead blank space between the text and the drawing's own
-  // left border (X0) instead of actually shrinking the border in to meet it.
-  let rowCatColW = 0.3;
+  // Floor and per-category width are both sized off the text's actual rendered thickness (capH),
+  // not the generous h*1.4 stacking pitch — that pitch is only needed as the GAP BETWEEN wrapped
+  // lines when a name spans more than one, not as the width of the single outermost line, so using
+  // it even for the (overwhelmingly common) single-line case reserved far more room than the ink
+  // needs. With the category text right-aligned tight against the numbers divider (X1), that extra
+  // reserved width just became dead blank space between the text and the drawing's own left border
+  // (X0) — this sizes the band to the text plus one small pad instead.
+  const rowCatPad = 0.08;
+  let rowCatColW = textHCat*capHRatio + rowCatPad;
   inCats.forEach(cat=>{
     const bandLen = Math.max(rowH, cat.items.length*rowH) - 0.06;
     const lines = wrapLabel(cat.name, textHCat*charW, bandLen);
-    rowCatColW = Math.max(rowCatColW, lines.length*textHCat*1.4 + 0.16);
+    rowCatColW = Math.max(rowCatColW, (lines.length-1)*textHCat*1.4 + textHCat*capHRatio + rowCatPad);
   });
 
   // dynamic column-category band height similarly
