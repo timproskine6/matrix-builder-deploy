@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 74</span>
+    <span style="color:#c3c8ce;">· build 75</span>
   </footer>
 </div>
 
@@ -905,7 +905,11 @@ function buildMatrixPdf(){
   const letterRowH = 0.20;
   const fanH = Math.min(9.0, Math.max(0.6, (maxHeaderW + 0.16) * S45));
   const headerBandH = letterRowH + fanH;
-  let rowCatColW = 0.5;
+  // Floor is just enough for a genuinely short single-line name (plus its pad) — not an arbitrary
+  // half inch. With the category text now right-aligned tight against the numbers divider (X1),
+  // an oversized floor here used to leave dead blank space between the text and the drawing's own
+  // left border (X0) instead of actually shrinking the border in to meet it.
+  let rowCatColW = 0.3;
   inCats.forEach(cat=>{
     const bandLen = Math.max(rowH, cat.items.length*rowH) - 0.06;
     const lines = wrapLabel(cat.name, s=>pdfTextWidth(s, textHCat, true), bandLen);
@@ -1635,8 +1639,12 @@ function buildDxf(){
   const fanH = Math.min(9.0, Math.max(0.6, (maxHeaderLen*textHCol*charW + 0.16) * S45));
   const headerBandH = letterRowH + fanH;
 
-  // dynamic row-category band width (wrap category names to fit each category's row-height span)
-  let rowCatColW = 0.5;
+  // dynamic row-category band width (wrap category names to fit each category's row-height span).
+  // Floor is just enough for a genuinely short single-line name (plus its pad) — not an arbitrary
+  // half inch. With the category text now right-aligned tight against the numbers divider (X1),
+  // an oversized floor here used to leave dead blank space between the text and the drawing's own
+  // left border (X0) instead of actually shrinking the border in to meet it.
+  let rowCatColW = 0.3;
   inCats.forEach(cat=>{
     const bandLen = Math.max(rowH, cat.items.length*rowH) - 0.06;
     const lines = wrapLabel(cat.name, textHCat*charW, bandLen);
