@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 78</span>
+    <span style="color:#c3c8ce;">· build 79</span>
   </footer>
 </div>
 
@@ -1065,12 +1065,13 @@ function buildMatrixPdf(){
     // their own section's width instead of running the full outer-frame width.
     line(X0,Y1i,X4,Y1i);
     // row dividers + row-category dividers (this page only) — confined to the row area (Y0..Y1).
-    // A per-row line through the category and number columns (tried briefly) cut through the
-    // vertical category text and the row numbers at every single row and looked cluttered, so
-    // those two columns only get dividers at the row-CATEGORY boundaries, not every row — only the
-    // labels + data grid get a line at every row.
+    // A per-row line through the CATEGORY column (tried briefly) cut through the vertical category
+    // text at every single row and looked cluttered, so that column only gets dividers at the
+    // row-CATEGORY boundaries, not every row. The numbers column, though, gets a line at every row
+    // (matching the labels + data grid) since the numbers are short and a full set of row lines
+    // there reads as a normal ruled list rather than clutter.
     [X1,X2].forEach(x=> line(x,Y0,x,Y1));
-    for(let i=1;i<rowCount;i++) line(X2, rowTopY(i), X5, rowTopY(i));
+    for(let i=1;i<rowCount;i++) line(X1, rowTopY(i), X5, rowTopY(i));
     page.catBands.forEach((band,bi)=>{
       if(bi < page.catBands.length-1){ const y = Y1-(band.startRow+band.rowCount)*rowH; line(X0,y,X1,y); }
     });
@@ -1743,11 +1744,12 @@ function buildDxf(){
   // their own section's width instead of running the full outer-frame width.
   dxf.line(X0,Y1i,X4,Y1i,LAYER_GRID);
 
-  // interior row dividers + row-category dividers. A per-row line through the category and number
-  // columns (tried briefly) cut through the vertical category text and the row numbers at every
-  // single row and looked cluttered, so those two columns only get dividers at the row-CATEGORY
-  // boundaries, not every row — only the labels + data grid get a line at every row.
-  for(let i=1;i<numRows;i++){ dxf.line(X2, rowTopY(i), X5, rowTopY(i), LAYER_GRID); }
+  // interior row dividers + row-category dividers. A per-row line through the CATEGORY column
+  // (tried briefly) cut through the vertical category text at every single row and looked
+  // cluttered, so that column only gets dividers at the row-CATEGORY boundaries, not every row.
+  // The numbers column gets a line at every row (matching the labels + data grid) since the
+  // numbers are short and a full set of row lines there reads as a normal ruled list.
+  for(let i=1;i<numRows;i++){ dxf.line(X1, rowTopY(i), X5, rowTopY(i), LAYER_GRID); }
   [X1,X2].forEach(x=> dxf.line(x,Y0,x,Y1,LAYER_GRID));
   { let acc=0;
     inCats.forEach((cat,ci)=>{
