@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 79</span>
+    <span style="color:#c3c8ce;">· build 81</span>
   </footer>
 </div>
 
@@ -1025,6 +1025,12 @@ function buildMatrixPdf(){
     function rowTopY(i){ return Y1-i*rowH; }
     function rowBottomY(i){ return Y1-(i+1)*rowH; }
     function rowCenterY(i){ return (rowTopY(i)+rowBottomY(i))/2; }
+    // content anchor shared by the row number/label text AND the data-grid dots/note marks —
+    // rowTextPad below the row's own top divider line (matching the tight hpad gap used for the
+    // diagonal column headers), rather than the row's true geometric center, so the whole row
+    // (numbers, labels, marks) reads as one vertically aligned unit.
+    const rowTextPad = 0.05;
+    function rowMarkY(i){ return rowTopY(i) - rowTextPad - (textHRow*capHRatio)/2; }
     function line(x1,y1,x2,y2){ p.line(toPtX(x1),toPtY(y1),toPtX(x2),toPtY(y2)); }
     function text(x,y,h,rot,str,bold){ p.text(toPtX(x),toPtY(y),ptLen(h),rot,str,bold); }
 
@@ -1128,13 +1134,16 @@ function buildMatrixPdf(){
         acc += cat.items.length;
     }); }
 
-    // row numbers + labels (this page's rows)
+    // row numbers + labels (this page's rows) — anchored a fixed rowTextPad below the row's own
+    // top divider line (not vertically centered in the row band), matching the same tight hpad
+    // gap used to nudge the diagonal column headers off their seam line, rather than the much
+    // larger gap that fell out of pure vertical centering.
     page.rows.forEach((r,i)=>{
-      const yc = rowCenterY(i);
+      const yBase = rowMarkY(i) - (textHRow*capHRatio)/2;
       const numStr = String(r.drawNum);
       const numW = pdfTextWidth(numStr, textHRow, false);
-      text(X1+(numColW-numW)/2, yc-textHRow*0.35, textHRow, 0, numStr, false);
-      text(X2+0.03, yc-textHRow*0.35, textHRow, 0, r.item.label, false);
+      text(X1+(numColW-numW)/2, yBase, textHRow, 0, numStr, false);
+      text(X2+0.03, yBase, textHRow, 0, r.item.label, false);
     });
     // letter codes (A, B, C...), horizontal, centered in each column directly above the data grid.
     outputCols.forEach((c,j)=>{
@@ -1158,16 +1167,18 @@ function buildMatrixPdf(){
       });
     }
 
-    // marks
+    // marks — vertically aligned to rowMarkY (same tightened anchor as the row number/label text
+    // above), not the row's true geometric center, so the dots/notes line up with the text again.
     page.rows.forEach((r,i)=>{
+      const ym = rowMarkY(i);
       outputCols.forEach((c,j)=>{
         const st = cellState(r.item.id, c.item.id);
         if(st===true){
           const d = Math.min(rowH,colW)*0.62;
-          p.filledDot(toPtX(colCenterX(j)), toPtY(rowCenterY(i)), ptLen(d/2));
+          p.filledDot(toPtX(colCenterX(j)), toPtY(ym), ptLen(d/2));
         } else if(st==='note'){
           const s='(1)', h=Math.min(rowH,colW)*0.32, lineLen=pdfTextWidth(s,h,false);
-          text(colCenterX(j)-lineLen/2, rowCenterY(i)-h*0.35, h, 0, s, false);
+          text(colCenterX(j)-lineLen/2, ym-h*0.35, h, 0, s, false);
         }
       });
     });
@@ -1724,6 +1735,12 @@ function buildDxf(){
   function rowTopY(i){ return Y1 - i*rowH; }
   function rowBottomY(i){ return Y1 - (i+1)*rowH; }
   function rowCenterY(i){ return (rowTopY(i)+rowBottomY(i))/2; }
+  // content anchor shared by the row number/label text AND the data-grid dots/note marks —
+  // rowTextPad below the row's own top divider line (matching the tight hpad gap used for the
+  // diagonal column headers), rather than the row's true geometric center, so the whole row
+  // (numbers, labels, marks) reads as one vertically aligned unit.
+  const rowTextPad = 0.05;
+  function rowMarkY(i){ return rowTopY(i) - rowTextPad - (textHRow*capHRatio)/2; }
   // col j (0-index left to right) left/right X
   function colLeftX(j){ return X4 + j*colW; }
   function colRightX(j){ return X4 + (j+1)*colW; }
@@ -1825,13 +1842,15 @@ function buildDxf(){
     });
   }
 
-  // ---- row numbers + labels ----
+  // ---- row numbers + labels ---- anchored to rowMarkY (rowTextPad below the row's own top
+  // divider line), not vertically centered in the row band, matching the tight hpad gap used for
+  // the diagonal column headers, rather than the much larger gap pure vertical centering gave.
   inputRows.forEach((r,i)=>{
-    const yc = rowCenterY(i);
+    const yBase = rowMarkY(i) - (textHRow*capHRatio)/2;
     const numStr = String(r.drawNum);
     const numW = numStr.length*textHRow*charW;
-    dxf.text(X1+(numColW-numW)/2, yc-textHRow*0.35, textHRow, 0, numStr, LAYER_TEXT);
-    dxf.text(X2+0.03, yc-textHRow*0.35, textHRow, 0, r.item.label, LAYER_TEXT);
+    dxf.text(X1+(numColW-numW)/2, yBase, textHRow, 0, numStr, LAYER_TEXT);
+    dxf.text(X2+0.03, yBase, textHRow, 0, r.item.label, LAYER_TEXT);
   });
 
   // ---- letter codes (A, B, C...), horizontal, centered in each column directly above the grid ----
@@ -1855,18 +1874,20 @@ function buildDxf(){
 
   // ---- outer border reinforcement (already covered by spines) ----
 
-  // ---- marks ----
+  // ---- marks ---- vertically aligned to rowMarkY (same tightened anchor as the row number/label
+  // text above), not the row's true geometric center, so the dots/notes line up with the text.
   inputRows.forEach((r,i)=>{
+    const ym = rowMarkY(i);
     outputCols.forEach((c,j)=>{
       const st = cellState(r.item.id, c.item.id);
       if(st===true){
         const d = Math.min(rowH,colW)*0.62;
-        dxf.filledDot(colCenterX(j), rowCenterY(i), d, LAYER_DOT);
+        dxf.filledDot(colCenterX(j), ym, d, LAYER_DOT);
       } else if(st==='note'){
         const s = '(1)';
         const h = Math.min(rowH,colW)*0.32;
         const lineLen = s.length*h*charW;
-        dxf.text(colCenterX(j)-lineLen/2, rowCenterY(i)-h*0.35, h, 0, s, LAYER_DOT);
+        dxf.text(colCenterX(j)-lineLen/2, ym-h*0.35, h, 0, s, LAYER_DOT);
       }
     });
   });
