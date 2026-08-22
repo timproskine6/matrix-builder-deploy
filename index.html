@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 86</span>
+    <span style="color:#c3c8ce;">· build 87</span>
   </footer>
 </div>
 
@@ -1099,8 +1099,12 @@ function buildMatrixPdf(){
     // column dividers + column-category dividers (identical on every page) — confined to the
     // column-header area (X4..X5), except Y2/Y3 which also extend into the blank margin (X5..X5f)
     // so the category-name band's own top/bottom borders form a continuous line matching the outer
-    // frame above/below it, instead of stopping short and leaving a notch in the border.
-    [Y2,Y3].forEach(y=> line(X4,y,X5f,y));
+    // frame above/below it, instead of stopping short and leaving a notch in the border. On the LEFT
+    // side, though, both lines start at X4+fanH rather than X4 — the first category box was already
+    // shifted right by fanH to land under the diagonal fan (see the divider loop below), so starting
+    // these seams at the old unshifted X4 just boxed in an empty rectangle over the blank triangular
+    // margin to its left, instead of leaving that margin as plain blank space like the fan band below it.
+    [Y2,Y3].forEach(y=> line(X4+fanH,y,X5f,y));
     // Straight verticals only run through the data grid + letter-code row (Y0..Y1b) — above that,
     // the column dividers become the diagonal fan lines drawn below instead.
     // j<=numCols (not j<numCols) so the LAST real column also gets its own right-hand divider.
@@ -1123,10 +1127,12 @@ function buildMatrixPdf(){
     // list, mirroring how SYSTEM OUTPUTS is a horizontal band directly above the column list,
     // rather than a vertical strip running the full row height down the left edge.
     placeHorizontalCentered((X0+X4)/2, (Y1+Y1i)/2, X4-X0-0.1, 'SYSTEM INPUTS', textHTitle, true);
-    // Centered across the FULL title band (X4..X5f), not just the real data-grid width (X4..X5) —
-    // otherwise the title sits visibly left-of-center whenever the frame is widened for a spilled
-    // category label.
-    placeHorizontalCentered((X4+X5f)/2, (Y3+Y4)/2, X5f-X4-0.1, 'SYSTEM OUTPUTS', textHTitle, true);
+    // Centered over the band's real visible content (X4+fanH..X5f) rather than the full X4..X5f
+    // span — X4..X4+fanH is the same blank triangular margin left of the first category box (see the
+    // Y2/Y3 seam fix above), and now that it's plain blank space rather than a bordered cell, the
+    // title should sit centered over the part of the bar people actually read as the box, not
+    // straddle the invisible margin too and read as off-center toward the left.
+    placeHorizontalCentered((X4+fanH+X5f)/2, (Y3+Y4)/2, X5f-(X4+fanH)-0.1, 'SYSTEM OUTPUTS', textHTitle, true);
     // optional drawing title, centered in the blank corner block above the SYSTEM INPUTS band
     // (X0..X4, Y1i..Y4)
     if(dTitle) placeHorizontalCentered((X0+X4)/2, (Y1i+Y4)/2, X4-X0-0.2, dTitle, 0.16, true);
@@ -1815,7 +1821,10 @@ function buildDxf(){
   // interior column dividers (data grid + header band), confined to the column-header area, except
   // Y2/Y3 which also extend into the blank margin (X5..X5f) so the category-name band's own
   // top/bottom borders form a continuous line matching the outer frame instead of leaving a notch.
-  [Y2,Y3].forEach(y=> dxf.line(X4,y,X5f,y,LAYER_GRID));
+  // On the LEFT side, both start at X4+fanH rather than X4 — the first category box is shifted right
+  // by fanH to land under the diagonal fan, so starting these seams at the old unshifted X4 just
+  // boxed in an empty rectangle over the blank triangular margin instead of leaving it plain blank.
+  [Y2,Y3].forEach(y=> dxf.line(X4+fanH,y,X5f,y,LAYER_GRID));
   // Straight verticals only run through the data grid + letter-code row (Y0..Y1b) — above that,
   // the column dividers become the diagonal fan lines drawn below instead.
   // j<=numCols (not j<numCols) so the LAST real column also gets its own right-hand divider.
@@ -1844,10 +1853,11 @@ function buildDxf(){
   // mirroring how SYSTEM OUTPUTS is a horizontal band directly above the column list, rather than
   // a vertical strip running the full row height down the left edge.
   placeHorizontalCentered((X0+X4)/2, (Y1+Y1i)/2, X4-X0-0.1, 'SYSTEM INPUTS', textHTitle, LAYER_TITLE);
-  // SYSTEM OUTPUTS (horizontal, spans X4..X5f, Y3..Y4) — centered across the FULL title band, not
-  // just the real data-grid width, otherwise it sits left-of-center whenever the frame is widened
-  // for a spilled category label.
-  placeHorizontalCentered((X4+X5f)/2, (Y3+Y4)/2, X5f-X4-0.1, 'SYSTEM OUTPUTS', textHTitle, LAYER_TITLE);
+  // SYSTEM OUTPUTS (horizontal, spans X4..X5f, Y3..Y4) — centered over the real visible content
+  // (X4+fanH..X5f) rather than the full X4..X5f span, since X4..X4+fanH is the same blank triangular
+  // margin left of the first category box; centering over the whole span (including that now-plain-
+  // blank margin) would read as off-center toward the left relative to the box people actually see.
+  placeHorizontalCentered((X4+fanH+X5f)/2, (Y3+Y4)/2, X5f-(X4+fanH)-0.1, 'SYSTEM OUTPUTS', textHTitle, LAYER_TITLE);
 
   // optional drawing title, centered in the blank corner block above the SYSTEM INPUTS band
   // (X0..X4, Y1i..Y4)
