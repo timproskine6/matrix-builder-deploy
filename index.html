@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 77</span>
+    <span style="color:#c3c8ce;">· build 78</span>
   </footer>
 </div>
 
@@ -1064,13 +1064,16 @@ function buildMatrixPdf(){
     // (X0..X4) — analogous to the Y2/Y3 seams on the column side, which are similarly confined to
     // their own section's width instead of running the full outer-frame width.
     line(X0,Y1i,X4,Y1i);
-    // row dividers — confined to the row area (Y0..Y1), spanning the FULL width (X0..X5) so every
-    // individual row is divided all the way across, including through the category and number
-    // columns, not just alongside the row labels and data grid — this same loop naturally covers
-    // every row-category boundary too (a category boundary is just a particular row index), so a
-    // separate category-boundary line pass isn't needed any more.
+    // row dividers + row-category dividers (this page only) — confined to the row area (Y0..Y1).
+    // A per-row line through the category and number columns (tried briefly) cut through the
+    // vertical category text and the row numbers at every single row and looked cluttered, so
+    // those two columns only get dividers at the row-CATEGORY boundaries, not every row — only the
+    // labels + data grid get a line at every row.
     [X1,X2].forEach(x=> line(x,Y0,x,Y1));
-    for(let i=1;i<rowCount;i++) line(X0, rowTopY(i), X5, rowTopY(i));
+    for(let i=1;i<rowCount;i++) line(X2, rowTopY(i), X5, rowTopY(i));
+    page.catBands.forEach((band,bi)=>{
+      if(bi < page.catBands.length-1){ const y = Y1-(band.startRow+band.rowCount)*rowH; line(X0,y,X1,y); }
+    });
     // column dividers + column-category dividers (identical on every page) — confined to the
     // column-header area (X4..X5), except Y2/Y3 which also extend into the blank margin (X5..X5f)
     // so the category-name band's own top/bottom borders form a continuous line matching the outer
@@ -1740,14 +1743,18 @@ function buildDxf(){
   // their own section's width instead of running the full outer-frame width.
   dxf.line(X0,Y1i,X4,Y1i,LAYER_GRID);
 
-  // interior row dividers, spanning the FULL width (X0..X5) so every individual row is divided
-  // all the way across, including through the category and number columns, not just alongside the
-  // row labels and data grid — this same loop naturally covers every row-category boundary too (a
-  // category boundary is just a particular row index), so a separate category-boundary line pass
-  // isn't needed any more.
-  for(let i=1;i<numRows;i++){ dxf.line(X0, rowTopY(i), X5, rowTopY(i), LAYER_GRID); }
-  // row-category interior boundary, confined to the row area
+  // interior row dividers + row-category dividers. A per-row line through the category and number
+  // columns (tried briefly) cut through the vertical category text and the row numbers at every
+  // single row and looked cluttered, so those two columns only get dividers at the row-CATEGORY
+  // boundaries, not every row — only the labels + data grid get a line at every row.
+  for(let i=1;i<numRows;i++){ dxf.line(X2, rowTopY(i), X5, rowTopY(i), LAYER_GRID); }
   [X1,X2].forEach(x=> dxf.line(x,Y0,x,Y1,LAYER_GRID));
+  { let acc=0;
+    inCats.forEach((cat,ci)=>{
+      acc += cat.items.length;
+      if(ci < inCats.length-1){ const y = Y1-acc*rowH; dxf.line(X0,y,X1,y,LAYER_GRID); }
+    });
+  }
 
   // interior column dividers (data grid + header band), confined to the column-header area, except
   // Y2/Y3 which also extend into the blank margin (X5..X5f) so the category-name band's own
