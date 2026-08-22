@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 87</span>
+    <span style="color:#c3c8ce;">· build 88</span>
   </footer>
 </div>
 
@@ -1067,9 +1067,13 @@ function buildMatrixPdf(){
     // X4's outer-left border skips the fan band (Y1b..Y2) — the first diagonal fan line already
     // starts at this exact corner (X4,Y1b) and rises to (X4+fanH,Y2), so a straight vertical
     // continuing through that band as well just doubled up on the diagonal right next to where the
-    // column-header text begins.
+    // column-header text begins. Above the fan band, that border resumes at X4+fanH rather than
+    // back at X4 — the diagonal's own top endpoint is (X4+fanH,Y2), and the category box (and now
+    // the SYSTEM OUTPUTS bar above it) both have their real left edge there too, so continuing
+    // straight up from the diagonal's landing point gives one unbroken border for the box's full
+    // height instead of a border that jogs back left at the Y2 seam.
     line(X4,Y0,X4,Y1b);
-    line(X4,Y2,X4,Y4);
+    line(X4+fanH,Y2,X4+fanH,Y4);
     line(X5f,Y0,X5f,Y4);
     // The Y1 seam (bottom of the letter-code row / top of row 1) is confined to the real content
     // width (X0..X5) — unlike Y0/Y4, it has no reason to cross the blank margin out to X5f since
@@ -1785,9 +1789,13 @@ function buildDxf(){
   // X4's outer-left border skips the fan band (Y1b..Y2) — the first diagonal fan line already
   // starts at this exact corner (X4,Y1b) and rises to (X4+fanH,Y2), so a straight vertical
   // continuing through that band as well just doubled up on the diagonal right next to where the
-  // column-header text begins.
+  // column-header text begins. Above the fan band, that border resumes at X4+fanH rather than back
+  // at X4 — the diagonal's own top endpoint is (X4+fanH,Y2), and the category box (and the SYSTEM
+  // OUTPUTS bar above it) both have their real left edge there too, so continuing straight up from
+  // the diagonal's landing point gives one unbroken border for the box's full height instead of a
+  // border that jogs back left at the Y2 seam.
   dxf.line(X4,Y0,X4,Y1b,LAYER_GRID);
-  dxf.line(X4,Y2,X4,Y4,LAYER_GRID);
+  dxf.line(X4+fanH,Y2,X4+fanH,Y4,LAYER_GRID);
   dxf.line(X5f,Y0,X5f,Y4,LAYER_GRID);
   // The Y1 seam (bottom of the letter-code row / top of row 1) is confined to the real content
   // width (X0..X5) — unlike Y0/Y4, it has no reason to cross the blank margin out to X5f since
