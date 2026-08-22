@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 83</span>
+    <span style="color:#c3c8ce;">· build 84</span>
   </footer>
 </div>
 
@@ -1080,6 +1080,11 @@ function buildMatrixPdf(){
     // (X0..X4) — analogous to the Y2/Y3 seams on the column side, which are similarly confined to
     // their own section's width instead of running the full outer-frame width.
     line(X0,Y1i,X4,Y1i);
+    // short connector at X4 bridging Y1b (where the diagonal fan actually starts) up to Y1i (where
+    // the SYSTEM INPUTS seam ends) — the letter row (Y1..Y1b) is shorter than the SYSTEM INPUTS
+    // band (Y1..Y1i), so without this the seam's right end and the fan's start point don't meet,
+    // leaving a small gap that the since-removed full-height X4 spine used to paper over.
+    line(X4,Y1b,X4,Y1i);
     // row dividers + row-category dividers (this page only) — confined to the row area (Y0..Y1).
     // A per-row line through the CATEGORY column (tried briefly) cut through the vertical category
     // text at every single row and looked cluttered, so that column only gets dividers at the
@@ -1782,6 +1787,11 @@ function buildDxf(){
   // (X0..X4) — analogous to the Y2/Y3 seams on the column side, which are similarly confined to
   // their own section's width instead of running the full outer-frame width.
   dxf.line(X0,Y1i,X4,Y1i,LAYER_GRID);
+  // short connector at X4 bridging Y1b (where the diagonal fan actually starts) up to Y1i (where
+  // the SYSTEM INPUTS seam ends) — the letter row (Y1..Y1b) is shorter than the SYSTEM INPUTS
+  // band (Y1..Y1i), so without this the seam's right end and the fan's start point don't meet,
+  // leaving a small gap that the since-removed full-height X4 spine used to paper over.
+  dxf.line(X4,Y1b,X4,Y1i,LAYER_GRID);
 
   // interior row dividers + row-category dividers. A per-row line through the CATEGORY column
   // (tried briefly) cut through the vertical category text at every single row and looked
