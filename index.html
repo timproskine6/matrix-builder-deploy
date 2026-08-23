@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 93</span>
+    <span style="color:#c3c8ce;">· build 94</span>
   </footer>
 </div>
 
@@ -1556,6 +1556,20 @@ class DxfWriter{
     str = dxfEscape(str);
     this.parts.push(`0\nTEXT\n8\n${layer}\n10\n${fmt(x)}\n20\n${fmt(y)}\n30\n0\n40\n${fmt(h)}\n1\n${str}\n50\n${fmt(rot)}\n7\n${DXF_TEXT_STYLE}\n`);
   }
+  // Same as text(), but vertically middle-justified using group codes 72 (horizontal, left here —
+  // x still means the ink's left edge, same as text()'s plain baseline-left meaning) and 73
+  // (vertical, middle) plus a second alignment point (11/21/31) duplicating the insertion point —
+  // the DXF-spec-correct way to hand vertical centering off to whatever actually renders the file,
+  // using ITS real font metrics, instead of us approximating a font's cap-height fraction ourselves.
+  // That approximation (capHRatio, borrowed from Helvetica for the PDF exporter) is what put row
+  // label text visibly off-center here: it assumes a smaller cap-height-to-declared-height ratio
+  // than AutoCAD's built-in SHX fonts actually render at, so text anchored by that assumption reads
+  // too close to the top of its row with a noticeably bigger gap below. y is the desired vertical
+  // CENTER of the text (e.g. a row's center line), not a baseline.
+  textVMid(x,y,h,rot,str,layer){
+    str = dxfEscape(str);
+    this.parts.push(`0\nTEXT\n8\n${layer}\n10\n${fmt(x)}\n20\n${fmt(y)}\n30\n0\n40\n${fmt(h)}\n1\n${str}\n50\n${fmt(rot)}\n7\n${DXF_TEXT_STYLE}\n72\n0\n73\n2\n11\n${fmt(x)}\n21\n${fmt(y)}\n31\n0\n`);
+  }
   filledDot(x,y,d,layer){
     // A filled circle built from a fan of 2D SOLID entities (one triangle per wedge, all sharing
     // the center point). Two earlier approaches were tried and dropped: an old-style POLYLINE with
@@ -1801,12 +1815,11 @@ function buildDxf(){
   // row i (0-index top to bottom) top/bottom Y
   function rowTopY(i){ return Y1 - i*rowH; }
   function rowBottomY(i){ return Y1 - (i+1)*rowH; }
+  // true geometric center of row i — the row number/label text and the data-grid dots/note marks
+  // are all anchored here now (via textVMid for text), so the whole row reads as one vertically
+  // aligned unit without relying on a guessed cap-height ratio for a font we don't control the
+  // real metrics of (see textVMid's comment on DxfWriter).
   function rowCenterY(i){ return (rowTopY(i)+rowBottomY(i))/2; }
-  // content anchor shared by the row number/label text AND the data-grid dots/note marks —
-  // rowPad below the row's own top divider line (matching the tight hpad gap used for the
-  // diagonal column headers), rather than the row's true geometric center, so the whole row
-  // (numbers, labels, marks) reads as one vertically aligned unit.
-  function rowMarkY(i){ return rowTopY(i) - rowPad - (textHRow*capHRatio)/2; }
   // col j (0-index left to right) left/right X
   function colLeftX(j){ return X4 + j*colW; }
   function colRightX(j){ return X4 + (j+1)*colW; }
@@ -1937,15 +1950,16 @@ function buildDxf(){
     });
   }
 
-  // ---- row numbers + labels ---- anchored to rowMarkY (rowPad below the row's own top
-  // divider line), not vertically centered in the row band, matching the tight hpad gap used for
-  // the diagonal column headers, rather than the much larger gap pure vertical centering gave.
+  // ---- row numbers + labels ---- vertically centered on the row's true geometric center
+  // (rowCenterY) using textVMid, which hands vertical centering to whatever renders the file
+  // rather than our own capHRatio guess — that guess was calibrated for PDF's Helvetica and reads
+  // noticeably too high (with a bigger gap below) against AutoCAD's actual SHX font metrics.
   inputRows.forEach((r,i)=>{
-    const yBase = rowMarkY(i) - (textHRow*capHRatio)/2;
+    const yc = rowCenterY(i);
     const numStr = String(r.drawNum);
     const numW = numStr.length*textHRow*charW;
-    dxf.text(X1+(numColW-numW)/2, yBase, textHRow, 0, numStr, LAYER_TEXT);
-    dxf.text(X2+0.03, yBase, textHRow, 0, r.item.label, LAYER_TEXT);
+    dxf.textVMid(X1+(numColW-numW)/2, yc, textHRow, 0, numStr, LAYER_TEXT);
+    dxf.textVMid(X2+0.03, yc, textHRow, 0, r.item.label, LAYER_TEXT);
   });
 
   // ---- letter codes (A, B, C...), horizontal, centered in each column directly above the grid ----
@@ -1969,10 +1983,10 @@ function buildDxf(){
 
   // ---- outer border reinforcement (already covered by spines) ----
 
-  // ---- marks ---- vertically aligned to rowMarkY (same tightened anchor as the row number/label
-  // text above), not the row's true geometric center, so the dots/notes line up with the text.
+  // ---- marks ---- vertically aligned to rowCenterY (the row's true geometric center), matching
+  // the now-centered row number/label text above, so the dots/notes still line up with the text.
   inputRows.forEach((r,i)=>{
-    const ym = rowMarkY(i);
+    const ym = rowCenterY(i);
     outputCols.forEach((c,j)=>{
       const st = cellState(r.item.id, c.item.id);
       if(st===true){
@@ -1982,7 +1996,7 @@ function buildDxf(){
         const s = '(1)';
         const h = Math.min(rowH,colW)*0.32;
         const lineLen = s.length*h*charW;
-        dxf.text(colCenterX(j)-lineLen/2, ym-h*0.35, h, 0, s, LAYER_DOT);
+        dxf.textVMid(colCenterX(j)-lineLen/2, ym, h, 0, s, LAYER_DOT);
       }
     });
   });
