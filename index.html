@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 90</span>
+    <span style="color:#c3c8ce;">· build 91</span>
   </footer>
 </div>
 
@@ -1665,7 +1665,10 @@ function buildDxf(){
   // ---- sizing constants (inches) ----
   const colW = 0.24;
   const textHRow = 0.09;      // row number / row label text height
-  const textHCol = 0.10;      // column header text height (must be < colW)
+  const textHCol = 0.09;      // column header (diagonal fan label) text height — matches textHRow so
+                               // the input row labels and output column headers read the same size
+                               // in CAD; DXF text has no real-glyph metrics like the PDF export does,
+                               // so this "must be < colW" only matters there, not here
   const textHCat = 0.085;     // category label text height
   const textHTitle = 0.20;    // SYSTEM INPUTS / SYSTEM OUTPUTS title text height
   const capHRatio = 0.718;    // same Helvetica cap-height ratio used in the PDF exporter's centering math
