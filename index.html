@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 91</span>
+    <span style="color:#c3c8ce;">· build 92</span>
   </footer>
 </div>
 
@@ -1523,7 +1523,18 @@ class DxfWriter{
       '0\nENDSEC\n' +
       '0\nSECTION\n2\nTABLES\n' +
         '0\nTABLE\n2\nSTYLE\n70\n1\n' +
-          `0\nSTYLE\n2\n${DXF_TEXT_STYLE}\n70\n0\n40\n0\n41\n1\n50\n0\n71\n0\n42\n1\n3\narial.ttf\n4\n\n` +
+          // Font is romans.shx (AutoCAD's built-in "Roman Simplex" vector font), not a TrueType
+          // reference like arial.ttf. Every row/column/category/title TEXT entity shares this one
+          // style, all at the same declared heights either way — but only the ROTATED (45°) column
+          // headers were rendering oversized and overlapping in AutoCAD, while unrotated text at
+          // the same height in the same style rendered correctly. That row/column split points at
+          // AutoCAD's TrueType rasterizer mishandling rotation for a style set up this way in an
+          // R12-tagged file, not at anything about our height values (which were already verified
+          // correct in the raw file). SHX fonts are the original, simplest DXF text mechanism —
+          // stroke-based rather than rasterized — with rotation handled identically at every angle,
+          // so switching removes that whole class of TrueType-rotation risk rather than guessing at
+          // which TrueType-specific flag might be missing.
+          `0\nSTYLE\n2\n${DXF_TEXT_STYLE}\n70\n0\n40\n0\n41\n1\n50\n0\n71\n0\n42\n1\n3\nromans.shx\n4\n\n` +
         '0\nENDTAB\n' +
         '0\nTABLE\n2\nLAYER\n70\n4\n' +
           '0\nLAYER\n2\nCEM_GRID\n70\n0\n62\n7\n6\nCONTINUOUS\n' +
