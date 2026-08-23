@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 89</span>
+    <span style="color:#c3c8ce;">· build 90</span>
   </footer>
 </div>
 
@@ -1506,13 +1506,18 @@ class DxfWriter{
     // dedicated text style pointing at a real TrueType font, makes the import self-contained and
     // predictable regardless of what's already in the target drawing.
     this.parts.push(
-      // A minimal HEADER section declaring the DXF version and drawing units. Without $ACADVER,
-      // a reader has no stated basis for expecting newer entity types like HATCH (introduced
-      // after the R12/AC1009 era this file otherwise resembles, being built from only LINE/TEXT/
-      // POLYLINE/TABLES so far) to be present, and without $INSUNITS there's no explicit record
-      // that every coordinate in this file is in inches.
+      // A minimal HEADER section declaring the DXF version and drawing units. $ACADVER is
+      // deliberately the old R12 token (AC1009), not a newer one like AC1015 — this file only ever
+      // wrote a HEADER/TABLES/ENTITIES skeleton with no BLOCKS or OBJECTS section and no entity
+      // handles, which is exactly what R12 itself doesn't require (handles and the BLOCKS/OBJECTS
+      // structure only became mandatory starting with R13). Claiming AC1015 while omitting those
+      // told real AutoCAD this was a modern-format file with a broken/incomplete database, which is
+      // what triggered its "drawing recovery" prompt (the confusing "Press ENTER to continue" with
+      // nothing then showing up) instead of just opening it — AC1009 asks for the one thing this
+      // file actually provides. Without $INSUNITS there's no explicit record that every coordinate
+      // in this file is in inches.
       '0\nSECTION\n2\nHEADER\n' +
-        '9\n$ACADVER\n1\nAC1015\n' +
+        '9\n$ACADVER\n1\nAC1009\n' +
         '9\n$INSUNITS\n70\n1\n' +
         '9\n$MEASUREMENT\n70\n0\n' +
       '0\nENDSEC\n' +
@@ -1539,19 +1544,27 @@ class DxfWriter{
     this.parts.push(`0\nTEXT\n8\n${layer}\n10\n${fmt(x)}\n20\n${fmt(y)}\n30\n0\n40\n${fmt(h)}\n1\n${str}\n50\n${fmt(rot)}\n7\n${DXF_TEXT_STYLE}\n`);
   }
   filledDot(x,y,d,layer){
-    // A solid-fill HATCH with a single full-circle arc boundary. The previous approach (an
-    // old-style POLYLINE with two coincident, equal-width VERTEX entities — the classic "wide
-    // zero-length segment" filled-dot trick) turned out not to reliably import as an actual
-    // filled circle in current AutoCAD versions; it renders as a near-invisible artifact (just a
-    // tiny grip point at the coordinate, no visible fill) instead. A HATCH is the format's own
-    // dedicated filled-region entity and is universally supported, so it doesn't depend on that
-    // older trick working the way it used to — same class of fix as the PDF export's filledDot(),
-    // which had the same AutoCAD-import-reliability problem with its old Bezier-circle fills.
-    const r = d/2;
-    let s = `0\nHATCH\n8\n${layer}\n10\n0\n20\n0\n30\n0\n210\n0\n220\n0\n230\n1\n2\nSOLID\n70\n1\n71\n0\n91\n1\n`;
-    s += `92\n1\n93\n1\n72\n2\n10\n${fmt(x)}\n20\n${fmt(y)}\n40\n${fmt(r)}\n50\n0\n51\n360\n73\n1\n`;
-    s += `97\n0\n75\n1\n76\n1\n98\n0\n`;
-    this.parts.push(s);
+    // A filled circle built from a fan of 2D SOLID entities (one triangle per wedge, all sharing
+    // the center point). Two earlier approaches were tried and dropped: an old-style POLYLINE with
+    // two coincident, equal-width VERTEX entities (the classic "wide zero-length segment" trick)
+    // didn't reliably import as an actual filled circle, rendering as a near-invisible artifact
+    // instead; and a HATCH entity (the format's own dedicated filled-region type) looked right but
+    // only exists from R14 onward, which requires declaring a modern $ACADVER — and this file's
+    // HEADER/TABLES/ENTITIES-only structure (no BLOCKS/OBJECTS sections, no entity handles) is
+    // exactly the older R12 shape, so claiming a newer version made real AutoCAD treat it as a
+    // modern file with a broken database and run its drawing-recovery prompt instead of just
+    // opening it. SOLID is a plain 2D filled triangle/quad that has existed since R12, so a small
+    // fan of them draws the same filled dot without needing anything past what this file already is.
+    const r = d/2, sides = 12;
+    for(let i=0;i<sides;i++){
+      const a0 = (i/sides)*2*Math.PI, a1 = ((i+1)/sides)*2*Math.PI;
+      const x1 = x+r*Math.cos(a0), y1 = y+r*Math.sin(a0);
+      const x2 = x+r*Math.cos(a1), y2 = y+r*Math.sin(a1);
+      // SOLID's 3rd/4th points coincide to make this a triangle (center, edge point i, edge point
+      // i+1) rather than a quadrilateral — that sidesteps SOLID's point-order "bowtie" gotcha
+      // entirely, since there's no ambiguous 4-point ordering left once two points are identical.
+      this.parts.push(`0\nSOLID\n8\n${layer}\n10\n${fmt(x)}\n20\n${fmt(y)}\n30\n0\n11\n${fmt(x1)}\n21\n${fmt(y1)}\n31\n0\n12\n${fmt(x2)}\n22\n${fmt(y2)}\n32\n0\n13\n${fmt(x2)}\n23\n${fmt(y2)}\n33\n0\n`);
+    }
   }
 }
 
