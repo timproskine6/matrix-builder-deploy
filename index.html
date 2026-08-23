@@ -233,7 +233,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 92</span>
+    <span style="color:#c3c8ce;">· build 93</span>
   </footer>
 </div>
 
@@ -1523,18 +1523,20 @@ class DxfWriter{
       '0\nENDSEC\n' +
       '0\nSECTION\n2\nTABLES\n' +
         '0\nTABLE\n2\nSTYLE\n70\n1\n' +
-          // Font is romans.shx (AutoCAD's built-in "Roman Simplex" vector font), not a TrueType
-          // reference like arial.ttf. Every row/column/category/title TEXT entity shares this one
-          // style, all at the same declared heights either way — but only the ROTATED (45°) column
-          // headers were rendering oversized and overlapping in AutoCAD, while unrotated text at
-          // the same height in the same style rendered correctly. That row/column split points at
-          // AutoCAD's TrueType rasterizer mishandling rotation for a style set up this way in an
-          // R12-tagged file, not at anything about our height values (which were already verified
-          // correct in the raw file). SHX fonts are the original, simplest DXF text mechanism —
-          // stroke-based rather than rasterized — with rotation handled identically at every angle,
-          // so switching removes that whole class of TrueType-rotation risk rather than guessing at
-          // which TrueType-specific flag might be missing.
-          `0\nSTYLE\n2\n${DXF_TEXT_STYLE}\n70\n0\n40\n0\n41\n1\n50\n0\n71\n0\n42\n1\n3\nromans.shx\n4\n\n` +
+          // Font is romanc.shx (AutoCAD's built-in "Roman Complex" vector font) rather than
+          // romans.shx ("Roman Simplex"). Both are SHX stroke-based fonts (not TrueType — see the
+          // rotation-rendering note below) so rotation is still handled identically at every angle,
+          // but Complex draws each letter with heavier, doubled-back strokes, which is the closest
+          // built-in AutoCAD equivalent to a "bold" weight — SHX fonts don't have a separate bold
+          // flag/variant the way TrueType families do, so swapping the base font is the way to get
+          // a bolder look here. Every row/column/category/title TEXT entity shares this one style,
+          // all at the same declared heights either way. (Earlier, only the ROTATED (45°) column
+          // headers were rendering oversized and overlapping in AutoCAD when this style referenced
+          // a TrueType font (arial.ttf), while unrotated text at the same height rendered correctly
+          // — that pointed at AutoCAD's TrueType rasterizer mishandling rotation for an R12-tagged
+          // file, not at anything about our height values. Switching to an SHX font fixed that, and
+          // remains true here since romanc.shx is just as stroke-based as romans.shx was.)
+          `0\nSTYLE\n2\n${DXF_TEXT_STYLE}\n70\n0\n40\n0\n41\n1\n50\n0\n71\n0\n42\n1\n3\nromanc.shx\n4\n\n` +
         '0\nENDTAB\n' +
         '0\nTABLE\n2\nLAYER\n70\n4\n' +
           '0\nLAYER\n2\nCEM_GRID\n70\n0\n62\n7\n6\nCONTINUOUS\n' +
@@ -1690,12 +1692,18 @@ function buildDxf(){
   const rowPad = 0.05;
   const rowH = textHRow*capHRatio + 2*rowPad;
   // Approximate char-width-to-height ratio for a standard CAD font. This is a deliberately
-  // generous over-estimate (real "Standard"/txt.shx rendering in AutoCAD runs narrower than
-  // this for most letters) so every band/column computed from it has real headroom — text
+  // generous over-estimate so every band/column computed from it has real headroom — text
   // was previously overlapping neighboring bands because 0.62 cut it too close to the real
-  // rendered width. Every text placement below also uses this same constant, so sizing and
-  // positioning stay self-consistent even though it's oversized.
-  const charW = 0.85;
+  // rendered width. Bumped from 0.85 to 1.05 when the text style switched to romanc.shx
+  // ("Roman Complex", used for a bolder look): Complex draws each letter with heavier,
+  // doubled-back strokes that run measurably wider than Simplex at the same declared height,
+  // and the longest currently-used output label ("TRANSMIT SUPERVISORY SIGNAL TO SUPERVISING
+  // STATION", 50 chars) was already only leaving a thin ~0.16in buffer against its computed
+  // fanH diagonal run length at 0.85 — not enough margin for a wider bold font, which is what
+  // was poking past the Y2 category-band boundary as small overshoot marks. Every text
+  // placement below also uses this same constant, so sizing and positioning stay
+  // self-consistent even though it's oversized.
+  const charW = 1.05;
 
   // number column is sized to snugly fit the longest row number (e.g. "34"), not a flat guess —
   // otherwise short numbers leave a wide dead gap before the label column's dividing line.
