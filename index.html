@@ -138,6 +138,13 @@
   #matrixModalHead{padding:10px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;}
   #matrixModalHead h2{font-size:13px;margin:0;flex:1;}
   #matrixScroll{flex:1;overflow:auto;position:relative;background:#fff;}
+  /* #matrixFitOuter is an explicitly-sized (via JS, see the fit-to-window block in
+     renderMatrixPreview()) plain box — what #matrixScroll's own scrollWidth/scrollHeight actually
+     measure. #matrixFitInner holds the real table + every overlay at natural size and gets scaled
+     down with `transform` to exactly fill it. display:inline-block on the inner one matters: a
+     plain block div would stretch to #matrixFitOuter's full width by default, which would throw
+     off the "natural size" measurement this whole scheme depends on. */
+  #matrixFitInner{display:inline-block;position:relative;}
 
   table.gridtable{border-collapse:collapse;font-size:10px;}
   table.gridtable th, table.gridtable td{border:1px solid #333;padding:0;text-align:center;}
@@ -194,9 +201,6 @@
     border-bottom:1px solid #333;box-sizing:border-box;background:#fff;pointer-events:none;}
   td.rownum{width:24px;background:#fafbfc;font-size:10px;color:var(--ink-soft);}
   table.gridtable td.rowlabel{text-align:left;padding:1px 3px;white-space:nowrap;font-size:10.5px;background:#fff;position:sticky;left:0;}
-  table.gridtable td.rowcat{background:#f0f2f5;font-weight:700;font-size:10.5px;writing-mode:vertical-rl;transform:rotate(180deg);
-    white-space:normal;position:sticky;left:0;padding:4px 2px;box-sizing:border-box;overflow:hidden;
-    word-break:normal;overflow-wrap:normal;line-height:1.2;}
   th.corner{background:#fff;position:sticky;left:0;top:0;z-index:3;}
   th.topleftTitle{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:800;font-size:14px;
     position:sticky;left:0;background:#fff;z-index:2;}
@@ -264,7 +268,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 107</span>
+    <span style="color:#c3c8ce;">· build 109</span>
   </footer>
 </div>
 
@@ -943,20 +947,12 @@ function buildMatrixPdf(){
   const letterRowH = 0.20;
   const fanH = Math.min(9.0, Math.max(0.6, (maxHeaderW + 0.16) * S45));
   const headerBandH = letterRowH + fanH;
-  // Floor and per-category width are both sized off the text's actual rendered thickness (capH),
-  // not the generous h*1.4 stacking pitch — that pitch is only needed as the GAP BETWEEN wrapped
-  // lines when a name spans more than one, not as the width of the single outermost line, so using
-  // it even for the (overwhelmingly common) single-line case reserved far more room than the ink
-  // needs. With the category text right-aligned tight against the numbers divider (X1), that extra
-  // reserved width just became dead blank space between the text and the drawing's own left border
-  // (X0) — this sizes the band to the text plus one small pad instead.
-  const rowCatPad = 0.08;
-  let rowCatColW = textHCat*capHRatio + rowCatPad;
-  inCats.forEach(cat=>{
-    const bandLen = Math.max(rowH, cat.items.length*rowH) - 0.06;
-    const lines = wrapLabel(cat.name, s=>pdfTextWidth(s, textHCat, true), bandLen);
-    rowCatColW = Math.max(rowCatColW, (lines.length-1)*textHCat*1.4 + textHCat*capHRatio + rowCatPad);
-  });
+  // Row-category names (ALARM / SUPERVISORY / TROUBLE / …) used to get their own vertical-text
+  // band here, right-aligned against the numbers divider X1. Removed at the user's request — the
+  // row numbers + item labels are enough to identify each row, and the category grouping is still
+  // fully recoverable from the source list, so that band is gone entirely rather than left blank:
+  // rowCatColW is 0, which collapses X1 down onto X0 and reclaims that width for the drawing.
+  const rowCatColW = 0;
   let colCatBandH = 0.34;
   { let accCols = 0;
     outCats.forEach(cat=>{
@@ -1087,24 +1083,8 @@ function buildMatrixPdf(){
       let y = cy + (lines.length-1)*spacing/2 - heff*capHRatio*0.5;
       lines.forEach(ln=>{ const len = pdfTextWidth(ln,heff,bold); text(cx-len/2, y, heff, 0, ln, bold); y -= spacing; });
     }
-    // Right-aligned vertical text: the insertion x IS the ink's right edge for 90°-rotated text
-    // (the glyph's cap-height band extends leftward, in -X, from the insertion point — the same
-    // offset the "+h*capHRatio*0.5" nudge above corrects for when centering), so no capH/2
-    // correction is needed here: anchoring the raw insertion x at (xRight - pad) puts the ink's
-    // right edge flush against xRight with that small pad to spare.
-    function placeVerticalRightAligned(xRight,cy,availH,str,h,bold){
-      const lines = wrapLabel(str, s=>pdfTextWidth(s,h,bold), availH);
-      // Same overflow guard as placeHorizontalCentered above: a single-word category name (e.g.
-      // "SUPERVISORY") taller than a short category's own row band can't be split by wrapLabel, so
-      // without this it prints past its band and runs into the next category's label. Shrinking
-      // the font so the longest line actually fits its band prevents that overlap.
-      const maxLineW = Math.max(...lines.map(ln=>pdfTextWidth(ln,h,bold)));
-      const heff = maxLineW > availH ? h*(availH/maxLineW)*0.98 : h;
-      const spacing = heff*1.4;
-      const pad = 0.05;
-      let x = xRight - pad;
-      lines.forEach(ln=>{ const len = pdfTextWidth(ln,heff,bold); text(x, cy-len/2, heff, 90, ln, bold); x -= spacing; });
-    }
+    // (placeVerticalRightAligned — right-aligned 90°-rotated text, used only for the now-removed
+    // row-category labels — was defined here. Removed along with its one call site.)
 
     // grid: outer border + the X4 spine (divides row info from data columns, full height).
     // X1/X2/X3 and Y2/Y3 are internal dividers that only apply within the row area / column-header
@@ -1139,17 +1119,15 @@ function buildMatrixPdf(){
     // band (Y1..Y1i), so without this the seam's right end and the fan's start point don't meet,
     // leaving a small gap that the since-removed full-height X4 spine used to paper over.
     line(X4,Y1b,X4,Y1i);
-    // row dividers + row-category dividers (this page only) — confined to the row area (Y0..Y1).
-    // A per-row line through the CATEGORY column (tried briefly) cut through the vertical category
-    // text at every single row and looked cluttered, so that column only gets dividers at the
-    // row-CATEGORY boundaries, not every row. The numbers column, though, gets a line at every row
-    // (matching the labels + data grid) since the numbers are short and a full set of row lines
-    // there reads as a normal ruled list rather than clutter.
-    [X1,X2].forEach(x=> line(x,Y0,x,Y1));
+    // row dividers (this page only) — confined to the row area (Y0..Y1). The numbers column gets
+    // a line at every row (matching the labels + data grid) since the numbers are short and a full
+    // set of row lines there reads as a normal ruled list rather than clutter. X1 no longer gets
+    // its own vertical (it's the same as X0 now that the row-category band is gone — see
+    // rowCatColW above — so a line there would just double-plot the outer left border), and the
+    // per-category boundary lines that used to run X0..X1 alongside the (now-removed) category
+    // labels are gone too, for the same reason.
+    line(X2,Y0,X2,Y1);
     for(let i=1;i<rowCount;i++) line(X1, rowTopY(i), X5, rowTopY(i));
-    page.catBands.forEach((band,bi)=>{
-      if(bi < page.catBands.length-1){ const y = Y1-(band.startRow+band.rowCount)*rowH; line(X0,y,X1,y); }
-    });
     // column dividers + column-category dividers (identical on every page) — confined to the
     // column-header area (X4..X5), except Y2/Y3 which also extend into the blank margin (X5..X5f)
     // so the category-name band's own top/bottom borders form a continuous line matching the outer
@@ -1191,13 +1169,8 @@ function buildMatrixPdf(){
     // (X0..X4, Y1i..Y4)
     if(dTitle) placeHorizontalCentered((X0+X4)/2, (Y1i+Y4)/2, X4-X0-0.2, dTitle, 0.16, true);
 
-    // row-category labels (this page's bands only), right-aligned tight against the row-number
-    // divider X1 rather than centered in the band — any leftover slack from the shared band width
-    // sits on the blank left side (toward X0) instead of splitting on both sides.
-    page.catBands.forEach(band=>{
-      const yTop = Y1-band.startRow*rowH, yBot = Y1-(band.startRow+band.rowCount)*rowH;
-      placeVerticalRightAligned(X1, (yTop+yBot)/2, (yTop-yBot)-0.06, band.name, textHCat, true);
-    });
+    // (row-category labels — ALARM / SUPERVISORY / TROUBLE / … — used to be drawn here, right-
+    // aligned against X1. Removed at the user's request; see rowCatColW above.)
     // column-category labels (identical on every page)
     { let acc=0; outCats.forEach(cat=>{
         const xL=X4+acc*colW+fanH, xR=X4+(acc+cat.items.length)*colW+fanH;
@@ -1350,7 +1323,7 @@ function renderMatrixPreview(){
   let html = '<table class="gridtable"><thead>';
   // row 1: corner + SYSTEM OUTPUTS title
   html += '<tr>';
-  html += `<th class="corner topleftTitle" rowspan="4" colspan="3"></th>`;
+  html += `<th class="corner topleftTitle" rowspan="4" colspan="2"></th>`;
   html += `<th class="outputsTitle" colspan="${totalCols}"><span class="stickyCenter">SYSTEM OUTPUTS</span></th>`;
   html += '</tr>';
   // row 2: output categories
@@ -1384,21 +1357,17 @@ function renderMatrixPreview(){
 
   let seq = 0;
   if(inCats.length===0 || outCats.length===0){
-    html += `<tr><td colspan="${Math.max(1,3+totalCols)}" style="padding:20px;text-align:center;color:#888;font-style:italic;">No inputs have any outputs selected yet — nothing to preview.</td></tr>`;
+    html += `<tr><td colspan="${Math.max(1,2+totalCols)}" style="padding:20px;text-align:center;color:#888;font-style:italic;">No inputs have any outputs selected yet — nothing to preview.</td></tr>`;
   }
   inCats.forEach(cat=>{
-    cat.items.forEach((it, i)=>{
+    cat.items.forEach((it)=>{
       seq++;
       html += '<tr>';
-      if(i===0){
-        // Height must be at least tall enough to fit the category's single longest word without
-        // slicing it mid-word (it wraps at spaces only), and at least the natural row-count height.
-        const naturalH = cat.items.length * 25;
-        const words = cat.name.split(/\s+/).filter(Boolean);
-        const longestWordPx = words.length ? Math.max(...words.map(w=>measureTextWidth(w, '700 10.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif'))) : 0;
-        const catH = Math.max(naturalH, Math.ceil(longestWordPx) + 10);
-        html += `<td class="rowcat" rowspan="${cat.items.length}" style="height:${catH}px;max-height:${catH}px;">${escapeHtml(cat.name)}</td>`;
-      }
+      // Row-category labels (ALARM / SUPERVISORY / TROUBLE / …) used to lead each category's
+      // first row here as a rowspan'd vertical-text cell, mirroring the PDF/DXF exports. Removed
+      // at the user's request in both, so it's removed here too for consistency — the row numbers
+      // + item labels are enough to identify each row, and this preview exists to compare against
+      // those same exports.
       html += `<td class="rownum">${seq}</td>`;
       html += `<td class="rowlabel">${escapeHtml(it.label)}</td>`;
       outCats.forEach(oc=>oc.items.forEach(oit=>{
@@ -1413,9 +1382,27 @@ function renderMatrixPreview(){
     });
   });
   html += '</tbody></table>';
-  host.innerHTML = html;
-  // add SYSTEM INPUTS vertical band by inserting a leftmost sticky title column via CSS trick:
-  // (kept simple: rowcat column carries the visual grouping; overall title shown in header bar)
+  // The table (and every overlay appended below) lives inside a dedicated wrapper, `fitInner`,
+  // rather than directly in `host` (#matrixScroll) — see the fit-to-window scaling block at the
+  // end of this function for why: it needs a plain element to apply `transform:scale()` to that
+  // isn't itself the scrolling/sticky-header container, since scaling `host` directly (e.g. via
+  // CSS `zoom`) collided badly with this table's `position:sticky` header cells in real-world
+  // browsers — sticky+zoom is a long-standing cross-browser trouble spot, and the failure mode
+  // observed (blank category/diagonal header text, and rows silently clipped well before the
+  // true row count) matches that class of bug. `fitOuter` is the plain box that actually
+  // occupies space in host's scrollable flow, explicitly resized to the post-scale footprint so
+  // host's own scrollWidth/scrollHeight shrink along with the visible content.
+  const fitOuter = document.createElement('div');
+  fitOuter.id = 'matrixFitOuter';
+  const fitInner = document.createElement('div');
+  fitInner.id = 'matrixFitInner';
+  fitInner.innerHTML = html;
+  fitOuter.appendChild(fitInner);
+  host.innerHTML = '';
+  host.appendChild(fitOuter);
+  // (the "SYSTEM INPUTS" title has no dedicated cell in this preview — the modal's own header
+  // bar text already names it — and the row-category grouping column that used to sit to its
+  // left is gone; see the row-building loop above.)
 
   // ---- category-header overlay labels ----
   // Each th.colcat was rendered empty on purpose (see above). Now that the table has real layout
@@ -1472,7 +1459,7 @@ function renderMatrixPreview(){
       box.style.top = top + 'px';
       box.style.width = spillBoxW + 'px';
       box.style.height = height + 'px';
-      host.appendChild(box);
+      fitInner.appendChild(box);
     }
   }
   outCats.forEach((c,ci)=>{
@@ -1490,7 +1477,7 @@ function renderMatrixPreview(){
     // a spilled label across its extended frame rather than left-aligning it against the real edge.
     ov.style.width = (ci === lastIdx && lastSpills ? r.width + spillBoxW : r.width) + 'px';
     ov.innerHTML = catLines[ci].map(escapeHtml).join('<br>');
-    host.appendChild(ov);
+    fitInner.appendChild(ov);
   });
 
   // ---- 45-degree diagonal fan header (mirrors the PDF/DXF exports' fanH band) ----
@@ -1539,7 +1526,7 @@ function renderMatrixPreview(){
       ln.setAttribute('stroke', '#333'); ln.setAttribute('stroke-width', '1');
       svg.appendChild(ln);
     });
-    host.appendChild(svg);
+    fitInner.appendChild(svg);
 
     // Diagonal label text: anchored at each column's center on the fan band's bottom edge, then
     // rotated -45deg — CSS rotate() is clockwise for positive angles, so a negative angle tilts
@@ -1556,7 +1543,7 @@ function renderMatrixPreview(){
       label.style.lineHeight = '12px';
       label.style.transform = 'rotate(-45deg)';
       label.textContent = it.label;
-      host.appendChild(label);
+      fitInner.appendChild(label);
     });
   }
 
@@ -1568,19 +1555,28 @@ function renderMatrixPreview(){
   // exists to sanity-check overall structure (dot placement, category grouping, alignment), not
   // to be read line-by-line the way the PDF/DXF exports are, so shrinking the ENTIRE rendered
   // preview down to fit the modal in one shot — no scrolling at all — serves it better than a
-  // full-size view that's mostly off-screen. CSS zoom (not transform:scale) is used deliberately:
-  // zoom is a real layout-affecting scale, so #matrixScroll's own scrollWidth/scrollHeight shrink
-  // together with the visible content, meaning the scrollbars disappear on their own once the
-  // factor is small enough — no separate width/height bookkeeping needed, and every absolutely-
-  // positioned overlay above (category labels, the diagonal fan lines/labels, the spill box) is a
-  // descendant of this same element, so it scales down as one consistent picture.
-  host.style.zoom = 1; // reset first — a previous open may have left a smaller factor in place,
-                        // which would corrupt the natural-size measurement below.
-  // A couple pixels of slack on the target size, plus a hair taken off the ratio itself, absorbs
-  // the sub-pixel rounding that setting `zoom` introduces (every overlay's px offset gets rounded
-  // to the nearest device pixel at the new scale, and those roundings can sum to a few px) — without
-  // it, the computed factor lands right at the fit boundary and a 1-3px overflow reintroduces
-  // exactly the scrollbar this is meant to eliminate.
+  // full-size view that's mostly off-screen.
+  //
+  // This scales `fitInner` (transform, not CSS `zoom`) rather than `host` itself. An earlier
+  // version zoomed `host` directly, which looked right in this session's own headless testing but
+  // broke on a real user's machine: `host`'s table has several `position:sticky` header cells
+  // (thead th, the sticky row-label/category column), and `zoom` combined with `position:sticky`
+  // is a known cross-browser trouble spot — inconsistent between engines/versions in ways that
+  // don't show up in every environment. What that produced there was exactly what got reported:
+  // category and diagonal column labels rendered fully blank, and `host.scrollHeight` came back
+  // under-measured, so the computed factor was too large and rows past a certain point were
+  // silently clipped with no visible scrollbar. `transform` doesn't have that history with
+  // `position:sticky` — it has well-defined (if different) behavior, spelled out below — so it's
+  // the more reliable choice here even though it needs an extra wrapper to do the same job `zoom`
+  // did in one step.
+  //
+  // `transform` doesn't shrink the space an element occupies in normal flow the way `zoom` does,
+  // so scaling `fitInner` alone would leave `host` still sized for the full, unscaled content
+  // (a big blank area where the shrunk drawing floats in one corner, still needing to scroll
+  // through the now-empty leftover space). `fitOuter` is the fix: an explicitly-sized plain box,
+  // set to exactly the post-scale footprint, that's what `host`'s scrollWidth/scrollHeight
+  // actually measure — `fitInner` (still its natural, unscaled size) sits inside it and is scaled
+  // down to precisely fill it.
   const fitAvailW = host.clientWidth - 2, fitAvailH = host.clientHeight - 2;
   const fitNeedW = host.scrollWidth, fitNeedH = host.scrollHeight;
   // Below this floor the matrix would shrink to illegible dust rather than a useful overview —
@@ -1590,7 +1586,11 @@ function renderMatrixPreview(){
   const FIT_MIN_ZOOM = 0.22;
   let fitZoom = Math.min(1, fitAvailW / Math.max(1, fitNeedW), fitAvailH / Math.max(1, fitNeedH)) * 0.99;
   fitZoom = Math.max(FIT_MIN_ZOOM, fitZoom);
-  host.style.zoom = fitZoom;
+  fitOuter.style.width = Math.ceil(fitNeedW * fitZoom) + 'px';
+  fitOuter.style.height = Math.ceil(fitNeedH * fitZoom) + 'px';
+  fitOuter.style.overflow = 'hidden';
+  fitInner.style.transformOrigin = 'top left';
+  fitInner.style.transform = `scale(${fitZoom})`;
 }
 
 /* ============================= DXF EXPORT ============================= */
@@ -1872,21 +1872,12 @@ function buildDxf(){
   const fanH = Math.min(9.0, Math.max(0.6, (maxHeaderLen*textHCol*charW + 0.16) * S45));
   const headerBandH = letterRowH + fanH;
 
-  // dynamic row-category band width (wrap category names to fit each category's row-height span).
-  // Floor and per-category width are both sized off the text's actual rendered thickness (capH),
-  // not the generous h*1.4 stacking pitch — that pitch is only needed as the GAP BETWEEN wrapped
-  // lines when a name spans more than one, not as the width of the single outermost line, so using
-  // it even for the (overwhelmingly common) single-line case reserved far more room than the ink
-  // needs. With the category text right-aligned tight against the numbers divider (X1), that extra
-  // reserved width just became dead blank space between the text and the drawing's own left border
-  // (X0) — this sizes the band to the text plus one small pad instead.
-  const rowCatPad = 0.08;
-  let rowCatColW = textHCat*capHRatio + rowCatPad;
-  inCats.forEach(cat=>{
-    const bandLen = Math.max(rowH, cat.items.length*rowH) - 0.06;
-    const lines = wrapLabel(cat.name, textHCat*charW, bandLen);
-    rowCatColW = Math.max(rowCatColW, (lines.length-1)*textHCat*1.4 + textHCat*capHRatio + rowCatPad);
-  });
+  // Row-category names (ALARM / SUPERVISORY / TROUBLE / …) used to get their own vertical-text
+  // band here, right-aligned against the numbers divider X1. Removed at the user's request — the
+  // row numbers + item labels are enough to identify each row, and the category grouping is still
+  // fully recoverable from the source list, so that band is gone entirely rather than left blank:
+  // rowCatColW is 0, which collapses X1 down onto X0 and reclaims that width for the drawing.
+  const rowCatColW = 0;
 
   // dynamic column-category band height similarly
   let colCatBandH = 0.34;
@@ -1992,19 +1983,14 @@ function buildDxf(){
   // leaving a small gap that the since-removed full-height X4 spine used to paper over.
   dxf.line(X4,Y1b,X4,Y1i,LAYER_GRID);
 
-  // interior row dividers + row-category dividers. A per-row line through the CATEGORY column
-  // (tried briefly) cut through the vertical category text at every single row and looked
-  // cluttered, so that column only gets dividers at the row-CATEGORY boundaries, not every row.
-  // The numbers column gets a line at every row (matching the labels + data grid) since the
-  // numbers are short and a full set of row lines there reads as a normal ruled list.
+  // interior row dividers. The numbers column gets a line at every row (matching the labels +
+  // data grid) since the numbers are short and a full set of row lines there reads as a normal
+  // ruled list. X1 no longer gets its own vertical (it's the same as X0 now that the row-category
+  // band is gone — see rowCatColW above — so a line there would just double-plot the outer left
+  // border), and the per-category boundary lines that used to run X0..X1 alongside the (now-
+  // removed) category labels are gone too, for the same reason.
   for(let i=1;i<numRows;i++){ dxf.line(X1, rowTopY(i), X5, rowTopY(i), LAYER_GRID); }
-  [X1,X2].forEach(x=> dxf.line(x,Y0,x,Y1,LAYER_GRID));
-  { let acc=0;
-    inCats.forEach((cat,ci)=>{
-      acc += cat.items.length;
-      if(ci < inCats.length-1){ const y = Y1-acc*rowH; dxf.line(X0,y,X1,y,LAYER_GRID); }
-    });
-  }
+  dxf.line(X2,Y0,X2,Y1,LAYER_GRID);
 
   // interior column dividers (data grid + header band), confined to the column-header area, except
   // Y2/Y3 which also extend into the blank margin (X5..X5f) so the category-name band's own
@@ -2054,16 +2040,8 @@ function buildDxf(){
     placeHorizontalCentered((X0+X4)/2, (Y1i+Y4)/2, X4-X0-0.2, dTitle, 0.16, LAYER_TITLE);
   }
 
-  // ---- row category labels (vertical, wrapped, stacked, right-aligned tight against the row-
-  // number divider X1 rather than centered in the band — any leftover slack from the shared band
-  // width sits on the blank left side (toward X0) instead of splitting on both sides) ----
-  { let acc=0;
-    inCats.forEach(cat=>{
-      const yTop = Y1-acc*rowH, yBot = Y1-(acc+cat.items.length)*rowH;
-      placeVerticalRightAligned(X1, (yTop+yBot)/2, (yTop-yBot)-0.06, cat.name, textHCat, LAYER_TEXT);
-      acc += cat.items.length;
-    });
-  }
+  // (row-category labels — ALARM / SUPERVISORY / TROUBLE / … — used to be drawn here, right-
+  // aligned against X1. Removed at the user's request; see rowCatColW above.)
   // ---- column category labels (horizontal, wrapped, stacked) ---- xL/xR shifted +fanH to match
   // the boundary dividers above, so the label text sits inside its (now correctly shifted) box.
   { let acc=0;
@@ -2155,29 +2133,8 @@ function buildDxf(){
       y -= spacing;
     });
   }
-  // Right-aligned vertical text: the insertion x IS the ink's right edge for 90°-rotated text (the
-  // glyph's cap-height band extends leftward, in -X, from the insertion point — this is exactly the
-  // offset placeVerticalCentered's old "+h*0.35" nudge was correcting for when centering), so unlike
-  // the centered helper, no capH/2 correction is needed here: anchoring the raw insertion x at
-  // (xRight - pad) puts the ink's right edge flush against xRight with that small pad to spare.
-  function placeVerticalRightAligned(xRight, cy, availH, text, h, layer){
-    const lines = wrapLabel(text, h*charW, availH);
-    // Same overflow guard as placeHorizontalCentered above: a single-word category name (e.g.
-    // "SUPERVISORY") that's taller than a short category's own row band can't be split by wrapLabel,
-    // so without this it prints past its band and runs into the next category's label — this is what
-    // made two adjacent category names visually fuse together in an exported drawing. Shrinking the
-    // font so the longest line actually fits its band prevents that overlap.
-    const maxLineLen = Math.max(...lines.map(line=>line.length*h*charW));
-    const heff = maxLineLen > availH ? h*(availH/maxLineLen)*0.98 : h;
-    const spacing = heff*1.4;
-    const pad = 0.05;
-    let x = xRight - pad;
-    lines.forEach(line=>{
-      const len = line.length*heff*charW;
-      dxf.text(x, cy-len/2, heff, 90, line, layer);
-      x -= spacing;
-    });
-  }
+  // (placeVerticalRightAligned — right-aligned 90°-rotated text, used only for the now-removed
+  // row-category labels — was defined here. Removed along with its one call site.)
   function placeHorizontalWrapped(yBottom, yTop, cx, availW, text, h, layer){
     placeHorizontalCentered(cx, (yBottom+yTop)/2, availW, text, h, layer);
   }
