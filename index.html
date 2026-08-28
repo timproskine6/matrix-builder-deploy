@@ -274,7 +274,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 114</span>
+    <span style="color:#c3c8ce;">· build 115</span>
   </footer>
 </div>
 
@@ -1073,8 +1073,15 @@ function buildMatrixPdf(){
     function line(x1,y1,x2,y2){ p.line(toPtX(x1),toPtY(y1),toPtX(x2),toPtY(y2)); }
     function text(x,y,h,rot,str,bold){ p.text(toPtX(x),toPtY(y),ptLen(h),rot,str,bold); }
 
-    function placeHorizontalCentered(cx,cy,availW,str,h,bold){
-      const lines = wrapLabel(str, s=>pdfTextWidth(s,h,bold), availW);
+    function placeHorizontalCentered(cx,cy,availW,str,h,bold,singleLine){
+      // singleLine (used for the SYSTEM INPUTS / SYSTEM OUTPUTS titles) skips word-wrapping
+      // entirely — those are page titles, not wrappable labels, and should never split across
+      // lines the way "SYSTEM OUTPUTS" could when squeezed against a narrow set of real output
+      // columns (e.g. only 1-2 categories with few wired columns). Without this, wrapLabel would
+      // break it into "SYSTEM" / "OUTPUTS" on two lines even though shrinking the font to fit one
+      // line (the same technique already used below for an unbreakable overlength word) reads far
+      // better. Category-name labels still call this without the flag, so they keep wrapping.
+      const lines = singleLine ? [str] : wrapLabel(str, s=>pdfTextWidth(s,h,bold), availW);
       // wrapLabel only breaks on word boundaries — a single unbreakable word longer than availW
       // (e.g. a short category like "TROUBLE" squeezed into a band with very few columns) comes
       // back as one over-length line with no way to split it further. Left alone, that line
@@ -1164,13 +1171,13 @@ function buildMatrixPdf(){
     // SYSTEM INPUTS (horizontal, spans X0..X4, Y1..Y1i) — a title band directly above the row
     // list, mirroring how SYSTEM OUTPUTS is a horizontal band directly above the column list,
     // rather than a vertical strip running the full row height down the left edge.
-    placeHorizontalCentered((X0+X4)/2, (Y1+Y1i)/2, X4-X0-0.1, 'SYSTEM INPUTS', textHTitle, true);
+    placeHorizontalCentered((X0+X4)/2, (Y1+Y1i)/2, X4-X0-0.1, 'SYSTEM INPUTS', textHTitle, true, true);
     // Centered over the band's real visible content (X4+fanH..X5f) rather than the full X4..X5f
     // span — X4..X4+fanH is the same blank triangular margin left of the first category box (see the
     // Y2/Y3 seam fix above), and now that it's plain blank space rather than a bordered cell, the
     // title should sit centered over the part of the bar people actually read as the box, not
     // straddle the invisible margin too and read as off-center toward the left.
-    placeHorizontalCentered((X4+fanH+X5f)/2, (Y3+Y4)/2, X5f-(X4+fanH)-0.1, 'SYSTEM OUTPUTS', textHTitle, true);
+    placeHorizontalCentered((X4+fanH+X5f)/2, (Y3+Y4)/2, X5f-(X4+fanH)-0.1, 'SYSTEM OUTPUTS', textHTitle, true, true);
     // optional drawing title, centered in the blank corner block above the SYSTEM INPUTS band
     // (X0..X4, Y1i..Y4)
     if(dTitle) placeHorizontalCentered((X0+X4)/2, (Y1i+Y4)/2, X4-X0-0.2, dTitle, 0.16, true);
@@ -2068,12 +2075,12 @@ function buildDxf(){
   // SYSTEM INPUTS (horizontal, spans X0..X4, Y1..Y1i) — a title band directly above the row list,
   // mirroring how SYSTEM OUTPUTS is a horizontal band directly above the column list, rather than
   // a vertical strip running the full row height down the left edge.
-  placeHorizontalCentered((X0+X4)/2, (Y1+Y1i)/2, X4-X0-0.1, 'SYSTEM INPUTS', textHTitle, LAYER_TITLE);
+  placeHorizontalCentered((X0+X4)/2, (Y1+Y1i)/2, X4-X0-0.1, 'SYSTEM INPUTS', textHTitle, LAYER_TITLE, true);
   // SYSTEM OUTPUTS (horizontal, spans X4..X5f, Y3..Y4) — centered over the real visible content
   // (X4+fanH..X5f) rather than the full X4..X5f span, since X4..X4+fanH is the same blank triangular
   // margin left of the first category box; centering over the whole span (including that now-plain-
   // blank margin) would read as off-center toward the left relative to the box people actually see.
-  placeHorizontalCentered((X4+fanH+X5f)/2, (Y3+Y4)/2, X5f-(X4+fanH)-0.1, 'SYSTEM OUTPUTS', textHTitle, LAYER_TITLE);
+  placeHorizontalCentered((X4+fanH+X5f)/2, (Y3+Y4)/2, X5f-(X4+fanH)-0.1, 'SYSTEM OUTPUTS', textHTitle, LAYER_TITLE, true);
 
   // optional drawing title, centered in the blank corner block above the SYSTEM INPUTS band
   // (X0..X4, Y1i..Y4)
@@ -2154,8 +2161,11 @@ function buildDxf(){
   });
 
   /* ---------- local placement helpers (rotation 0 / 90 only) ---------- */
-  function placeHorizontalCentered(cx, cy, availW, text, h, layer){
-    const lines = wrapLabel(text, h*charW, availW);
+  function placeHorizontalCentered(cx, cy, availW, text, h, layer, singleLine){
+    // singleLine (used for the SYSTEM INPUTS / SYSTEM OUTPUTS titles) skips word-wrapping entirely
+    // — see the matching PDF helper for the full rationale: those are page titles, not wrappable
+    // labels, and should shrink to fit one line rather than ever splitting across two.
+    const lines = singleLine ? [text] : wrapLabel(text, h*charW, availW);
     // wrapLabel only breaks on word boundaries — a single unbreakable word longer than availW (e.g.
     // a short category like "TROUBLE" squeezed into a band with very few columns) comes back as one
     // over-length line with no way to split it further. Left alone, that line renders past its own
