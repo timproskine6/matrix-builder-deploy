@@ -274,7 +274,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 115</span>
+    <span style="color:#c3c8ce;">· build 116</span>
   </footer>
 </div>
 
@@ -1653,6 +1653,9 @@ function dxfEscape(s){
 
 // Name of the dedicated text style every TEXT entity references (see DxfWriter's TABLES section).
 const DXF_TEXT_STYLE = 'CEM_TEXT';
+// Rotated (45°) diagonal column headers stay on their own dedicated style — see the STYLE table
+// comment below for why they can't share the main Arial style.
+const DXF_TEXT_STYLE_DIAG = 'CEM_TEXT_DIAG';
 class DxfWriter{
   constructor(){
     this.parts = [];
@@ -1684,21 +1687,29 @@ class DxfWriter{
         '9\n$MEASUREMENT\n70\n0\n' +
       '0\nENDSEC\n' +
       '0\nSECTION\n2\nTABLES\n' +
-        '0\nTABLE\n2\nSTYLE\n70\n1\n' +
-          // Font is romanc.shx (AutoCAD's built-in "Roman Complex" vector font) rather than
-          // romans.shx ("Roman Simplex"). Both are SHX stroke-based fonts (not TrueType — see the
-          // rotation-rendering note below) so rotation is still handled identically at every angle,
-          // but Complex draws each letter with heavier, doubled-back strokes, which is the closest
-          // built-in AutoCAD equivalent to a "bold" weight — SHX fonts don't have a separate bold
-          // flag/variant the way TrueType families do, so swapping the base font is the way to get
-          // a bolder look here. Every row/column/category/title TEXT entity shares this one style,
-          // all at the same declared heights either way. (Earlier, only the ROTATED (45°) column
-          // headers were rendering oversized and overlapping in AutoCAD when this style referenced
-          // a TrueType font (arial.ttf), while unrotated text at the same height rendered correctly
-          // — that pointed at AutoCAD's TrueType rasterizer mishandling rotation for an R12-tagged
-          // file, not at anything about our height values. Switching to an SHX font fixed that, and
-          // remains true here since romanc.shx is just as stroke-based as romans.shx was.)
-          `0\nSTYLE\n2\n${DXF_TEXT_STYLE}\n70\n0\n40\n0\n41\n1\n50\n0\n71\n0\n42\n1\n3\nromanc.shx\n4\n\n` +
+        '0\nTABLE\n2\nSTYLE\n70\n2\n' +
+          // DXF_TEXT_STYLE (the main style — everything except the diagonal column headers) points
+          // at Arial, a real TrueType font, per an explicit user request for the DXF text to read as
+          // Arial rather than an AutoCAD stroke font. Every one of these TEXT entities is unrotated
+          // (rot=0): row labels, category names, letter codes, and the SYSTEM INPUTS/OUTPUTS titles.
+          //
+          // DXF_TEXT_STYLE_DIAG stays on romanc.shx (AutoCAD's built-in "Roman Complex" vector font)
+          // and is used ONLY for the one call site that draws text at a 45° rotation — the diagonal
+          // column headers. That split exists because of a previously-confirmed AutoCAD bug: when
+          // this style referenced a TrueType font (arial.ttf) for everything, the ROTATED 45° column
+          // headers rendered oversized and overlapping in real AutoCAD, while unrotated text at the
+          // same declared height rendered correctly — pointing at AutoCAD's TrueType rasterizer
+          // mishandling rotation for an R12-tagged file (this DXF's $ACADVER), not at our height
+          // values. Switching everything to an SHX font fixed that. Since only the diagonal headers
+          // actually use non-zero rotation, keeping just that one call site on the known-safe SHX
+          // font (Complex draws heavier, doubled-back strokes — the closest built-in AutoCAD
+          // equivalent to a "bold" weight, since SHX fonts have no separate bold flag/variant the
+          // way TrueType families do) avoids re-triggering the bug while letting everything else be
+          // real Arial. This hasn't been re-verified in actual AutoCAD (no such software is
+          // available in this sandbox) — if the diagonal headers ever look wrong again, that's the
+          // first thing to check.
+          `0\nSTYLE\n2\n${DXF_TEXT_STYLE}\n70\n0\n40\n0\n41\n1\n50\n0\n71\n0\n42\n1\n3\nArial.ttf\n4\n\n` +
+          `0\nSTYLE\n2\n${DXF_TEXT_STYLE_DIAG}\n70\n0\n40\n0\n41\n1\n50\n0\n71\n0\n42\n1\n3\nromanc.shx\n4\n\n` +
         '0\nENDTAB\n' +
         '0\nTABLE\n2\nLAYER\n70\n4\n' +
           '0\nLAYER\n2\nCEM_GRID\n70\n0\n62\n7\n6\nCONTINUOUS\n' +
@@ -1714,9 +1725,9 @@ class DxfWriter{
   line(x1,y1,x2,y2,layer){
     this.parts.push(`0\nLINE\n8\n${layer}\n6\nCONTINUOUS\n10\n${fmt(x1)}\n20\n${fmt(y1)}\n30\n0\n11\n${fmt(x2)}\n21\n${fmt(y2)}\n31\n0\n`);
   }
-  text(x,y,h,rot,str,layer){
+  text(x,y,h,rot,str,layer,style){
     str = dxfEscape(str);
-    this.parts.push(`0\nTEXT\n8\n${layer}\n10\n${fmt(x)}\n20\n${fmt(y)}\n30\n0\n40\n${fmt(h)}\n1\n${str}\n50\n${fmt(rot)}\n7\n${DXF_TEXT_STYLE}\n`);
+    this.parts.push(`0\nTEXT\n8\n${layer}\n10\n${fmt(x)}\n20\n${fmt(y)}\n30\n0\n40\n${fmt(h)}\n1\n${str}\n50\n${fmt(rot)}\n7\n${style||DXF_TEXT_STYLE}\n`);
   }
   // Same as text(), but vertically middle-justified using group codes 72 (horizontal, left here —
   // x still means the ink's left edge, same as text()'s plain baseline-left meaning) and 73
@@ -2136,7 +2147,7 @@ function buildDxf(){
       const xMid = colLeftX(j) + colW/2;
       const ax = xMid + S45*(hpad + capH*0.5);
       const ay = Y1b + S45*(hpad - capH*0.5);
-      dxf.text(ax, ay, textHCol, 45, c.item.label, LAYER_TEXT);
+      dxf.text(ax, ay, textHCol, 45, c.item.label, LAYER_TEXT, DXF_TEXT_STYLE_DIAG);
     });
   }
 
