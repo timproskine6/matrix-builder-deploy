@@ -193,17 +193,23 @@
     justify-content:center;text-align:center;line-height:1.3;
     font-weight:700;font-size:10.5px;padding:0 5px;box-sizing:border-box;pointer-events:none;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#111;}
-  /* Blank bordered margin to the right of the true last data column, reserved for a spilled last
-     category label (see the spill-box logic in renderMatrixPreview) — mirrors the PDF/DXF exports'
-     extended outer frame. No left border: the real last column's own right border already closes
-     that edge, so drawing one here would just double it. */
+  /* Blank bordered margin to the right of the true last data column, reserved for the last
+     category's header text (see the margin-sizing logic in renderMatrixPreview) — mirrors the
+     PDF/DXF exports' extended outer frame, which always runs at least fanH past the real grid.
+     Spans the full table height; .colcatSpillBoxHeader (below) then overlays just the header-row
+     portion of this same box with a matching gray fill, the same way the exports leave this
+     margin blank alongside the data rows but let the header band's own fill continue into it. No
+     left border on either piece: the real last column's own right border already closes that
+     edge, so drawing one here would just double it. */
   .colcatSpillBox{position:absolute;border-top:1px solid #333;border-right:1px solid #333;
     border-bottom:1px solid #333;box-sizing:border-box;background:#fff;pointer-events:none;}
+  .colcatSpillBoxHeader{position:absolute;border-top:1px solid #333;border-right:1px solid #333;
+    border-bottom:1px solid #333;box-sizing:border-box;background:#f0f2f5;pointer-events:none;}
   td.rownum{width:24px;background:#fafbfc;font-size:10px;color:var(--ink-soft);}
   table.gridtable td.rowlabel{text-align:left;padding:1px 3px;white-space:nowrap;font-size:10.5px;background:#fff;position:sticky;left:0;}
   th.corner{background:#fff;position:sticky;left:0;top:0;z-index:3;}
-  th.topleftTitle{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:800;font-size:14px;
-    position:sticky;left:0;background:#fff;z-index:2;}
+  th.topleftTitle{font-weight:800;font-size:14px;text-align:center;vertical-align:bottom;
+    padding-bottom:4px;position:sticky;left:0;background:#fff;z-index:2;}
   th.outputsTitle{font-weight:800;font-size:16px;background:#fff;position:sticky;top:0;z-index:2;}
   /* keeps the title visually centered in the scrolled viewport even though the cell it lives in
      spans every output column (which is usually much wider than what's on screen at once) */
@@ -268,7 +274,7 @@
     <span class="legend"><span class="noteDot"></span> conditional / see note</span>
     <span class="sp" style="flex:1"></span>
     <span id="statusMsg"></span>
-    <span style="color:#c3c8ce;">· build 110</span>
+    <span style="color:#c3c8ce;">· build 113</span>
   </footer>
 </div>
 
@@ -294,7 +300,7 @@
    Pre-loaded from the approved fire alarm cause & effect matrix (PMT2416556D).
    57 system inputs, 41 system outputs, extracted + verified from the source PDF.
 ========================================================================== */
-const DEFAULT_DATA = {"inputCategories":[{"name":"ALARM","items":[{"id":"i7","num":7,"label":"AIR SAMPLING SMOKE DETECTOR UNIT - FIRE 1 - 1ST ZONE ALARM (SERVER)","notUsed":false},{"id":"i3","num":3,"label":"AIR SAMPLING SMOKE DETECTOR UNIT - FIRE 1 (MDA, SSNR, BATTERY, ELEC)","notUsed":false},{"id":"i8","num":8,"label":"AIR SAMPLING SMOKE DETECTOR UNIT - FIRE 2 - 2ND ZONE ALARM (SERVER) (1)","notUsed":false},{"id":"i4","num":4,"label":"AIR SAMPLING SMOKE DETECTOR UNIT - FIRE 2 (MDA, SSNR, BATTERY, ELEC) (1)","notUsed":false},{"id":"i65","num":63,"label":"COMBO CO/SMOKE DETECTOR - CARBON MONOXIDE SENSOR","notUsed":false},{"id":"i64","num":62,"label":"COMBO CO/SMOKE DETECTOR - SMOKE SENSOR","notUsed":false},{"id":"i70","num":68,"label":"ELEVATOR EQUIP. ROOM HEAT DETECTOR","notUsed":false},{"id":"i69","num":67,"label":"ELEVATOR EQUIP. ROOM SMOKE DETECTOR","notUsed":false},{"id":"i73","num":71,"label":"ELEVATOR LOBBY SMOKE DETECTOR - ALTERNATE RECALL FLOOR","notUsed":false},{"id":"i74","num":72,"label":"ELEVATOR LOBBY SMOKE DETECTOR - PRIMARY RECALL FLOOR","notUsed":false},{"id":"i72","num":70,"label":"ELEVATOR SHAFT HEAT DETECTOR","notUsed":false},{"id":"i71","num":69,"label":"ELEVATOR SHAFT SMOKE DETECTOR","notUsed":false},{"id":"i66","num":64,"label":"EXISTING FIRE ALARM PANEL IN BUILDING","notUsed":false},{"id":"i63","num":61,"label":"FLAME DETECTOR","notUsed":false},{"id":"i67","num":65,"label":"GAS DETECTION - TYPE - SET POINT","notUsed":false},{"id":"i12","num":12,"label":"HEAT DETECTOR","notUsed":false},{"id":"i13","num":13,"label":"KITCHEN HOOD","notUsed":false},{"id":"i1","num":1,"label":"MANUAL PULL STATION","notUsed":false},{"id":"i62","num":60,"label":"OSID (BEAM) DETECTOR","notUsed":false},{"id":"i2","num":2,"label":"SMOKE DETECTOR","notUsed":false},{"id":"i5","num":5,"label":"SMOKE DETECTOR - 1 (AREAS PROTECTED BY PREACTION SPRINKLER SYSTEM)","notUsed":false},{"id":"i6","num":6,"label":"SMOKE DETECTOR - 2 (AREAS PROTECTION BY PREACTION SPRINKLER SYSTEM) (1)","notUsed":false},{"id":"i9","num":9,"label":"SMOKE/HEAT DETECTOR (ADJACENT TO FIRE/SMOKE DOOR)","notUsed":false},{"id":"i68","num":66,"label":"SPRINKLER WATERFLOW IN ELEVATOR EQUIP. ROOM OR SHAFT","notUsed":false},{"id":"i11","num":11,"label":"SPRINKLER WATERFLOW PRESSURE SWITCH (PREACTION)","notUsed":false},{"id":"i10","num":10,"label":"SPRINKLER WATERFLOW SWITCH (WET-PIPE)","notUsed":false}]},{"name":"SUPERVISORY","items":[{"id":"i85","num":83,"label":"AREA OF REFUGE TWO-WAY COMMUNICATION STATUS","notUsed":false},{"id":"i14","num":14,"label":"DUCT SMOKE DETECTOR RETURN SIDE (AHU, RTU)","notUsed":false},{"id":"i15","num":15,"label":"DUCT SMOKE DETECTOR SUPPLY SIDE (AHU, RTU)","notUsed":false},{"id":"i84","num":82,"label":"ELEVATOR POWER SHUNT TRIP STATUS","notUsed":false},{"id":"i34","num":34,"label":"ERRCS BATTERY CHARGER FAILURE","notUsed":false},{"id":"i36","num":36,"label":"ERRCS FAILURE OF ACTIVE RF-EMITTING DEVICE(S)","notUsed":false},{"id":"i38","num":38,"label":"ERRCS FAILURE OF CRITICAL SYSTEM COMPONENTS","notUsed":false},{"id":"i33","num":33,"label":"ERRCS LOSS OF NORMAL AC POWER SUPPLY","notUsed":false},{"id":"i37","num":37,"label":"ERRCS LOW BATTERY CAPACITY","notUsed":false},{"id":"i35","num":35,"label":"ERRCS MALFUNCTION OF DONOR ANTENNA(S)","notUsed":false},{"id":"i80","num":78,"label":"EXISTING FIRE ALARM PANEL IN BUILDING","notUsed":false},{"id":"i61","num":59,"label":"FIRE PUMP CONTROLLER CONNECTED TO ALT. SOURCE","notUsed":false},{"id":"i25","num":25,"label":"FIRE PUMP CONTROLLER SWITCH IN OFF OR MANUAL POSITION","notUsed":false},{"id":"i60","num":58,"label":"FIRE PUMP LOSS OF PHASE","notUsed":false},{"id":"i24","num":24,"label":"FIRE PUMP OR MOTOR RUNNING","notUsed":false},{"id":"i26","num":26,"label":"FIRE PUMP PHASE REVERSAL","notUsed":false},{"id":"i81","num":79,"label":"FSCP (RELEASING PANEL)","notUsed":false},{"id":"i22","num":22,"label":"NITROGEN GENERATOR SYSTEM BYPASS MODE","notUsed":false},{"id":"i23","num":23,"label":"NITROGEN GENERATOR SYSTEM LEAK MONITORING","notUsed":false},{"id":"i21","num":21,"label":"NITROGEN GENERATOR SYSTEM POWER","notUsed":false},{"id":"i19","num":19,"label":"POST INDICATING VALVE TAMPER SWITCH","notUsed":false},{"id":"i18","num":18,"label":"PREACTION KEY DISABLE SWITCH","notUsed":false},{"id":"i17","num":17,"label":"PREACTION SPRINKLER LOW-AIR PRESSURE SWITCH","notUsed":false},{"id":"i20","num":20,"label":"SMOKE DETECTOR WITHIN MECHANICAL/ELECTRICAL EXTERIOR ENCLOSURE","notUsed":false},{"id":"i83","num":81,"label":"SPRINKLER BACKFLOW PREVENTER","notUsed":false},{"id":"i82","num":80,"label":"SPRINKLER DRY PIPE HIGH/LOW PRESSURE SWITCH","notUsed":false},{"id":"i16","num":16,"label":"SPRINKLER VALVE TAMPER SWITCH","notUsed":false}]},{"name":"TROUBLE","items":[{"id":"i57","num":57,"label":"AIR SAMPLING DETECTOR - POWER SUPPLY FAULT","notUsed":false},{"id":"i55","num":55,"label":"AIR SAMPLING DETECTOR UNIT - MINOR/MAJOR FAULT","notUsed":false},{"id":"i56","num":56,"label":"AIR SAMPLING DETECTOR UNIT - POWER SUPPLY AC FAILURE","notUsed":false},{"id":"i78","num":76,"label":"COMMUNICATOR FAULT","notUsed":false},{"id":"i75","num":73,"label":"EXISTING FIRE ALARM PANEL IN BUILDING","notUsed":false},{"id":"i46","num":46,"label":"FIRE ALARM SYSTEM AC POWER FAILURE","notUsed":false},{"id":"i50","num":50,"label":"FIRE ALARM SYSTEM AMPLIFIER FAILURE","notUsed":false},{"id":"i45","num":45,"label":"FIRE ALARM SYSTEM BATTERY CHARGER FAILURE","notUsed":false},{"id":"i43","num":43,"label":"FIRE ALARM SYSTEM BATTERY DISCONNECT","notUsed":false},{"id":"i53","num":53,"label":"FIRE ALARM SYSTEM DEGRADE MODE OPERATION","notUsed":false},{"id":"i40","num":40,"label":"FIRE ALARM SYSTEM DEVICE COMMUNICATION FAILURE","notUsed":false},{"id":"i48","num":48,"label":"FIRE ALARM SYSTEM DEVICE COMMUNICATION FAILURE","notUsed":false},{"id":"i51","num":51,"label":"FIRE ALARM SYSTEM DIGITAL VOICE GENERATOR FAILURE","notUsed":false},{"id":"i52","num":52,"label":"FIRE ALARM SYSTEM ELECTRONIC COMPONENT CARD FAILURE","notUsed":false},{"id":"i42","num":42,"label":"FIRE ALARM SYSTEM GROUND FAULT","notUsed":false},{"id":"i49","num":49,"label":"FIRE ALARM SYSTEM INITIATING DEVICE FAILURE","notUsed":false},{"id":"i44","num":44,"label":"FIRE ALARM SYSTEM LOW BATTERY","notUsed":false},{"id":"i54","num":54,"label":"FIRE ALARM SYSTEM MANUAL CONTROL SWTICH LEFT IN \"OFF NORMAL\" POSITION","notUsed":false},{"id":"i41","num":41,"label":"FIRE ALARM SYSTEM OPEN CIRCUIT","notUsed":false},{"id":"i47","num":47,"label":"FIRE ALARM SYSTEM SMOKE DETECTOR SELF TEST FAILURE","notUsed":false},{"id":"i79","num":77,"label":"FSCP (RELEASING PANEL)","notUsed":false},{"id":"i76","num":74,"label":"NOTIFICATION APPLIANCE SHORT CIRCUIT","notUsed":false},{"id":"i77","num":75,"label":"REMOTE POWER SUPPLY","notUsed":false}]},{"name":"MASS NOTIFICATION INITIATION","items":[{"id":"i27","num":27,"label":"MANUAL PAGE VOICE ZONE - FSA","notUsed":false},{"id":"i28","num":28,"label":"MANUAL PAGE VOICE ZONE - SERVER ROOM","notUsed":false},{"id":"i29","num":29,"label":"MANUAL PAGE \"ALL ZONES\"","notUsed":false},{"id":"i30","num":30,"label":"MANUAL PAGE VOICE ZONE - ELECTRICAL YARD BUILDINGS","notUsed":false},{"id":"i31","num":31,"label":"MANUAL PAGE VOICE ZONE - MECHANICAL YARD BUILDINGS","notUsed":false},{"id":"i32","num":32,"label":"NOT USED","notUsed":true}]}],"outputCategories":[{"name":"CONTROL UNIT ANNUNCIATION","items":[{"id":"o0","idx":0,"label":"INITIATE AUDIBLE & VISUAL ALARM SIGNAL AT FACU & FAAP(S)","notUsed":false},{"id":"o1","idx":1,"label":"INITIATE AUDIBLE & VISUAL SUPERVISORY SIGNAL AT FACU & FAAP(S)","notUsed":false},{"id":"o2","idx":2,"label":"INITIATE AUDIBLE & VISUAL TROUBLE SIGNAL AT FACU & FAAP(S)","notUsed":false},{"id":"o4","idx":4,"label":"DISPLAY EVENT DESCRIPTION ON ALPHANUMERIC DISPLAY","notUsed":false},{"id":"o5","idx":5,"label":"DISPLAY EVENT ON GRAPHIC ANNUCIATOR TOUCHSCREENS","notUsed":false}]},{"name":"NOTIFICATION","items":[{"id":"o45","idx":45,"label":"ACTIVATE TEMPORAL 4 SIGNAL","notUsed":false},{"id":"o46","idx":46,"label":"ACTIVATE GENERAL EVACUATION SIGNAL BY HORNS & STROBES","notUsed":false},{"id":"o47","idx":47,"label":"ACTIVATE LOCAL IN-ROOM LOW FREQUENCY AUDIBLE SIGNAL","notUsed":false},{"id":"o9","idx":9,"label":"ACTIVATE EXTERIOR WATERFLOW AUDIO/VISUAL DEVICE","notUsed":false},{"id":"o10","idx":10,"label":"TRANSMIT ALARM SIGNAL TO SUPERVISING STATION","notUsed":false},{"id":"o11","idx":11,"label":"TRANSMIT SUPERVISORY SIGNAL TO SUPERVISING STATION","notUsed":false},{"id":"o12","idx":12,"label":"TRANSMIT TROUBLE SIGNAL TO SUPERVISING STATION","notUsed":false}]},{"name":"FIRE SAFETY CONTROL","items":[{"id":"o29","idx":29,"label":"SHUTDOWN ASSOCIATED AHU/RTU","notUsed":false},{"id":"o30","idx":30,"label":"RELEASE ASSOCIATED FIRE/SMOKE COILING DOORS","notUsed":false},{"id":"o33","idx":33,"label":"ENERGIZE ASSOCIATED PREACTION SPRINKLER RELEASE SOLENOID","notUsed":false},{"id":"o34","idx":34,"label":"CLOSE ASSOCIATED FIRE/SMOKE DAMPERS","notUsed":false},{"id":"o35","idx":35,"label":"RELEASE ASSOCIATED MAGENTIC DOOR HOLDS TO CLOSE","notUsed":false},{"id":"o41","idx":41,"label":"RECALL ELEVATOR TO PRIMARY FLOOR","notUsed":false},{"id":"o42","idx":42,"label":"RECALL ELEVATOR TO SECONDARY FLOOR","notUsed":false},{"id":"o43","idx":43,"label":"ACTUATE FIREFIGHTER HAT INDICATOR","notUsed":false},{"id":"o44","idx":44,"label":"SHUNT TRIP ELEVATOR POWER","notUsed":false}]},{"name":"MASS NOTIFICATION","items":[{"id":"o13","idx":13,"label":"ACTIVATE ASSOCIATED PAGING ZONE VISUAL NOTIFICATION STROBES","notUsed":false},{"id":"o14","idx":14,"label":"MANUAL BROADCAST TO VOICE ZONE - FSA BUILDING","notUsed":false},{"id":"o15","idx":15,"label":"MANUAL BROADCAST TO VOICE ZONE - SERVER ROOM","notUsed":false},{"id":"o16","idx":16,"label":"MANUAL BROADCAST TO VOICE - ROOF","notUsed":false},{"id":"o17","idx":17,"label":"MANUAL BROADCAST TO ALL VOICE EVAC ZONES","notUsed":false},{"id":"o18","idx":18,"label":"MANUAL BROADCAST TO VOICE - ELECTRICAL YARD BUILDINGS","notUsed":false},{"id":"o19","idx":19,"label":"MANUAL BROADCAST TO VOICE - MECHANICAL YARD BUILDINGS","notUsed":false},{"id":"o20","idx":20,"label":"SWITCH TO BACKUP AMPLIFIER","notUsed":false},{"id":"o21","idx":21,"label":"SWITCH TO BACKUP TONE GENERATOR","notUsed":false}]}],"matrix":{"i1":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i69":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i70":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i71":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i72":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i73":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i74":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i62":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i63":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i64":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i65":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i66":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i67":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i68":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true,"o9":true},"i10":{"o0":true,"o4":true,"o5":true,"o9":true,"o10":true,"o46":true,"o29":true},"i11":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i14":{"o1":true,"o4":true,"o5":true,"o29":true,"o11":true},"i15":{"o1":true,"o4":true,"o5":true,"o29":true,"o11":true},"i16":{"o1":true,"o4":true,"o5":true,"o11":true},"i80":{"o1":true,"o4":true,"o5":true,"o11":true},"i81":{"o1":true,"o4":true,"o5":true,"o11":true},"i82":{"o1":true,"o4":true,"o5":true,"o11":true},"i83":{"o1":true,"o4":true,"o5":true,"o11":true},"i84":{"o1":true,"o4":true,"o5":true,"o11":true},"i85":{"o1":true,"o4":true,"o5":true,"o11":true},"i33":{"o1":true,"o4":true,"o5":true,"o11":true},"i34":{"o1":true,"o4":true,"o5":true,"o11":true},"i35":{"o1":true,"o4":true,"o5":true,"o11":true},"i36":{"o1":true,"o4":true,"o5":true,"o11":true},"i37":{"o1":true,"o4":true,"o5":true,"o11":true},"i38":{"o1":true,"o4":true,"o5":true,"o11":true},"i17":{"o1":true,"o4":true,"o5":true,"o11":true},"i18":{"o1":true,"o4":true,"o5":true,"o11":true},"i41":{"o2":true,"o4":true,"o5":true,"o12":true},"i75":{"o2":true,"o4":true,"o5":true,"o12":true},"i76":{"o2":true,"o4":true,"o5":true,"o12":true},"i77":{"o2":true,"o4":true,"o5":true,"o12":true},"i78":{"o2":true,"o4":true,"o5":true,"o12":true},"i79":{"o2":true,"o4":true,"o5":true,"o12":true},"i42":{"o2":true,"o4":true,"o5":true,"o12":true},"i43":{"o2":true,"o4":true,"o5":true,"o12":true},"i44":{"o2":true,"o4":true,"o5":true,"o12":true},"i45":{"o2":true,"o4":true,"o5":true,"o12":true},"i46":{"o2":true,"o4":true,"o5":true,"o12":true},"i12":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i13":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i24":{"o1":true,"o4":true,"o5":true,"o11":true},"i25":{"o1":true,"o4":true,"o5":true,"o11":true},"i26":{"o1":true,"o4":true,"o5":true,"o11":true},"i60":{"o1":true,"o4":true,"o5":true,"o11":true},"i61":{"o1":true,"o4":true,"o5":true,"o11":true},"i2":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true}}};
+const DEFAULT_DATA = {"inputCategories":[{"name":"ALARM","items":[{"id":"i7","num":7,"label":"AIR SAMPLING SMOKE DETECTOR UNIT - FIRE 1 - 1ST ZONE ALARM (SERVER)","notUsed":false},{"id":"i3","num":3,"label":"AIR SAMPLING SMOKE DETECTOR UNIT - FIRE 1 (MDA, SSNR, BATTERY, ELEC)","notUsed":false},{"id":"i8","num":8,"label":"AIR SAMPLING SMOKE DETECTOR UNIT - FIRE 2 - 2ND ZONE ALARM (SERVER) (1)","notUsed":false},{"id":"i4","num":4,"label":"AIR SAMPLING SMOKE DETECTOR UNIT - FIRE 2 (MDA, SSNR, BATTERY, ELEC) (1)","notUsed":false},{"id":"i65","num":63,"label":"COMBO CO/SMOKE DETECTOR - CARBON MONOXIDE SENSOR","notUsed":false},{"id":"i64","num":62,"label":"COMBO CO/SMOKE DETECTOR - SMOKE SENSOR","notUsed":false},{"id":"i70","num":68,"label":"ELEVATOR EQUIP. ROOM HEAT DETECTOR","notUsed":false},{"id":"i69","num":67,"label":"ELEVATOR EQUIP. ROOM SMOKE DETECTOR","notUsed":false},{"id":"i73","num":71,"label":"ELEVATOR LOBBY SMOKE DETECTOR - ALTERNATE RECALL FLOOR","notUsed":false},{"id":"i74","num":72,"label":"ELEVATOR LOBBY SMOKE DETECTOR - PRIMARY RECALL FLOOR","notUsed":false},{"id":"i72","num":70,"label":"ELEVATOR SHAFT HEAT DETECTOR","notUsed":false},{"id":"i71","num":69,"label":"ELEVATOR SHAFT SMOKE DETECTOR","notUsed":false},{"id":"i66","num":64,"label":"EXISTING FIRE ALARM PANEL IN BUILDING","notUsed":false},{"id":"i63","num":61,"label":"FLAME DETECTOR","notUsed":false},{"id":"i67","num":65,"label":"GAS DETECTION - TYPE - SET POINT","notUsed":false},{"id":"i12","num":12,"label":"HEAT DETECTOR","notUsed":false},{"id":"i13","num":13,"label":"KITCHEN HOOD","notUsed":false},{"id":"i1","num":1,"label":"MANUAL PULL STATION","notUsed":false},{"id":"i62","num":60,"label":"OSID (BEAM) DETECTOR","notUsed":false},{"id":"i2","num":2,"label":"SMOKE DETECTOR","notUsed":false},{"id":"i5","num":5,"label":"SMOKE DETECTOR - 1 (AREAS PROTECTED BY PREACTION SPRINKLER SYSTEM)","notUsed":false},{"id":"i6","num":6,"label":"SMOKE DETECTOR - 2 (AREAS PROTECTION BY PREACTION SPRINKLER SYSTEM) (1)","notUsed":false},{"id":"i9","num":9,"label":"SMOKE/HEAT DETECTOR (ADJACENT TO FIRE/SMOKE DOOR)","notUsed":false},{"id":"i68","num":66,"label":"SPRINKLER WATERFLOW IN ELEVATOR EQUIP. ROOM OR SHAFT","notUsed":false},{"id":"i11","num":11,"label":"SPRINKLER WATERFLOW PRESSURE SWITCH (PREACTION)","notUsed":false},{"id":"i10","num":10,"label":"SPRINKLER WATERFLOW SWITCH (WET-PIPE)","notUsed":false}]},{"name":"SUPERVISORY","items":[{"id":"i85","num":83,"label":"AREA OF REFUGE TWO-WAY COMMUNICATION STATUS","notUsed":false},{"id":"i14","num":14,"label":"DUCT SMOKE DETECTOR RETURN SIDE (AHU, RTU)","notUsed":false},{"id":"i15","num":15,"label":"DUCT SMOKE DETECTOR SUPPLY SIDE (AHU, RTU)","notUsed":false},{"id":"i84","num":82,"label":"ELEVATOR POWER SHUNT TRIP STATUS","notUsed":false},{"id":"i34","num":34,"label":"ERRCS BATTERY CHARGER FAILURE","notUsed":false},{"id":"i36","num":36,"label":"ERRCS FAILURE OF ACTIVE RF-EMITTING DEVICE(S)","notUsed":false},{"id":"i38","num":38,"label":"ERRCS FAILURE OF CRITICAL SYSTEM COMPONENTS","notUsed":false},{"id":"i33","num":33,"label":"ERRCS LOSS OF NORMAL AC POWER SUPPLY","notUsed":false},{"id":"i37","num":37,"label":"ERRCS LOW BATTERY CAPACITY","notUsed":false},{"id":"i35","num":35,"label":"ERRCS MALFUNCTION OF DONOR ANTENNA(S)","notUsed":false},{"id":"i80","num":78,"label":"EXISTING FIRE ALARM PANEL IN BUILDING","notUsed":false},{"id":"i61","num":59,"label":"FIRE PUMP CONTROLLER CONNECTED TO ALT. SOURCE","notUsed":false},{"id":"i25","num":25,"label":"FIRE PUMP CONTROLLER SWITCH IN OFF OR MANUAL POSITION","notUsed":false},{"id":"i60","num":58,"label":"FIRE PUMP LOSS OF PHASE","notUsed":false},{"id":"i24","num":24,"label":"FIRE PUMP OR MOTOR RUNNING","notUsed":false},{"id":"i26","num":26,"label":"FIRE PUMP PHASE REVERSAL","notUsed":false},{"id":"i81","num":79,"label":"FSCP (RELEASING PANEL)","notUsed":false},{"id":"i22","num":22,"label":"NITROGEN GENERATOR SYSTEM BYPASS MODE","notUsed":false},{"id":"i23","num":23,"label":"NITROGEN GENERATOR SYSTEM LEAK MONITORING","notUsed":false},{"id":"i21","num":21,"label":"NITROGEN GENERATOR SYSTEM POWER","notUsed":false},{"id":"i19","num":19,"label":"POST INDICATING VALVE TAMPER SWITCH","notUsed":false},{"id":"i18","num":18,"label":"PREACTION KEY DISABLE SWITCH","notUsed":false},{"id":"i17","num":17,"label":"PREACTION SPRINKLER LOW-AIR PRESSURE SWITCH","notUsed":false},{"id":"i20","num":20,"label":"SMOKE DETECTOR WITHIN MECHANICAL/ELECTRICAL EXTERIOR ENCLOSURE","notUsed":false},{"id":"i83","num":81,"label":"SPRINKLER BACKFLOW PREVENTER","notUsed":false},{"id":"i82","num":80,"label":"SPRINKLER DRY PIPE HIGH/LOW PRESSURE SWITCH","notUsed":false},{"id":"i16","num":16,"label":"SPRINKLER VALVE TAMPER SWITCH","notUsed":false}]},{"name":"TROUBLE","items":[{"id":"i57","num":57,"label":"AIR SAMPLING DETECTOR - POWER SUPPLY FAULT","notUsed":false},{"id":"i55","num":55,"label":"AIR SAMPLING DETECTOR UNIT - MINOR/MAJOR FAULT","notUsed":false},{"id":"i56","num":56,"label":"AIR SAMPLING DETECTOR UNIT - POWER SUPPLY AC FAILURE","notUsed":false},{"id":"i78","num":76,"label":"COMMUNICATOR FAULT","notUsed":false},{"id":"i75","num":73,"label":"EXISTING FIRE ALARM PANEL IN BUILDING","notUsed":false},{"id":"i46","num":46,"label":"FIRE ALARM SYSTEM AC POWER FAILURE","notUsed":false},{"id":"i50","num":50,"label":"FIRE ALARM SYSTEM AMPLIFIER FAILURE","notUsed":false},{"id":"i45","num":45,"label":"FIRE ALARM SYSTEM BATTERY CHARGER FAILURE","notUsed":false},{"id":"i43","num":43,"label":"FIRE ALARM SYSTEM BATTERY DISCONNECT","notUsed":false},{"id":"i53","num":53,"label":"FIRE ALARM SYSTEM DEGRADE MODE OPERATION","notUsed":false},{"id":"i40","num":40,"label":"FIRE ALARM SYSTEM DEVICE COMMUNICATION FAILURE","notUsed":false},{"id":"i48","num":48,"label":"FIRE ALARM SYSTEM DEVICE COMMUNICATION FAILURE","notUsed":false},{"id":"i51","num":51,"label":"FIRE ALARM SYSTEM DIGITAL VOICE GENERATOR FAILURE","notUsed":false},{"id":"i52","num":52,"label":"FIRE ALARM SYSTEM ELECTRONIC COMPONENT CARD FAILURE","notUsed":false},{"id":"i42","num":42,"label":"FIRE ALARM SYSTEM GROUND FAULT","notUsed":false},{"id":"i49","num":49,"label":"FIRE ALARM SYSTEM INITIATING DEVICE FAILURE","notUsed":false},{"id":"i44","num":44,"label":"FIRE ALARM SYSTEM LOW BATTERY","notUsed":false},{"id":"i54","num":54,"label":"FIRE ALARM SYSTEM MANUAL CONTROL SWTICH LEFT IN \"OFF NORMAL\" POSITION","notUsed":false},{"id":"i41","num":41,"label":"FIRE ALARM SYSTEM OPEN CIRCUIT","notUsed":false},{"id":"i47","num":47,"label":"FIRE ALARM SYSTEM SMOKE DETECTOR SELF TEST FAILURE","notUsed":false},{"id":"i79","num":77,"label":"FSCP (RELEASING PANEL)","notUsed":false},{"id":"i76","num":74,"label":"NOTIFICATION APPLIANCE SHORT CIRCUIT","notUsed":false},{"id":"i77","num":75,"label":"REMOTE POWER SUPPLY","notUsed":false}]},{"name":"MASS NOTIFICATION INITIATION","items":[{"id":"i27","num":27,"label":"MANUAL PAGE VOICE ZONE - FSA","notUsed":false},{"id":"i28","num":28,"label":"MANUAL PAGE VOICE ZONE - SERVER ROOM","notUsed":false},{"id":"i29","num":29,"label":"MANUAL PAGE \"ALL ZONES\"","notUsed":false},{"id":"i30","num":30,"label":"MANUAL PAGE VOICE ZONE - ELECTRICAL YARD BUILDINGS","notUsed":false},{"id":"i31","num":31,"label":"MANUAL PAGE VOICE ZONE - MECHANICAL YARD BUILDINGS","notUsed":false},{"id":"i32","num":32,"label":"NOT USED","notUsed":true}]}],"outputCategories":[{"name":"CONTROL UNIT ANNUNCIATION","items":[{"id":"o0","idx":0,"label":"INITIATE AUDIBLE & VISUAL ALARM SIGNAL AT FACU & FAAP(S)","notUsed":false},{"id":"o1","idx":1,"label":"INITIATE AUDIBLE & VISUAL SUPERVISORY SIGNAL AT FACU & FAAP(S)","notUsed":false},{"id":"o2","idx":2,"label":"INITIATE AUDIBLE & VISUAL TROUBLE SIGNAL AT FACU & FAAP(S)","notUsed":false},{"id":"o4","idx":4,"label":"DISPLAY EVENT DESCRIPTION ON ALPHANUMERIC DISPLAY","notUsed":false},{"id":"o5","idx":5,"label":"DISPLAY EVENT ON GRAPHIC ANNUCIATOR TOUCHSCREENS","notUsed":false}]},{"name":"NOTIFICATION","items":[{"id":"o45","idx":45,"label":"ACTIVATE TEMPORAL 4 SIGNAL","notUsed":false},{"id":"o46","idx":46,"label":"ACTIVATE GENERAL EVACUATION SIGNAL BY HORNS & STROBES","notUsed":false},{"id":"o47","idx":47,"label":"ACTIVATE LOCAL IN-ROOM LOW FREQUENCY AUDIBLE SIGNAL","notUsed":false},{"id":"o9","idx":9,"label":"ACTIVATE EXTERIOR WATERFLOW AUDIO/VISUAL DEVICE","notUsed":false},{"id":"o10","idx":10,"label":"TRANSMIT ALARM SIGNAL TO SUPERVISING STATION","notUsed":false},{"id":"o11","idx":11,"label":"TRANSMIT SUPERVISORY SIGNAL TO SUPERVISING STATION","notUsed":false},{"id":"o12","idx":12,"label":"TRANSMIT TROUBLE SIGNAL TO SUPERVISING STATION","notUsed":false}]},{"name":"FIRE SAFETY CONTROL","items":[{"id":"o29","idx":29,"label":"SHUTDOWN ASSOCIATED AHU/RTU","notUsed":false},{"id":"o30","idx":30,"label":"RELEASE ASSOCIATED FIRE/SMOKE COILING DOORS","notUsed":false},{"id":"o33","idx":33,"label":"ENERGIZE ASSOCIATED PREACTION SPRINKLER RELEASE SOLENOID","notUsed":false},{"id":"o34","idx":34,"label":"CLOSE ASSOCIATED FIRE/SMOKE DAMPERS","notUsed":false},{"id":"o35","idx":35,"label":"RELEASE ASSOCIATED MAGENTIC DOOR HOLDS TO CLOSE","notUsed":false},{"id":"o41","idx":41,"label":"RECALL ELEVATOR TO PRIMARY FLOOR","notUsed":false},{"id":"o42","idx":42,"label":"RECALL ELEVATOR TO SECONDARY FLOOR","notUsed":false},{"id":"o43","idx":43,"label":"ACTUATE FIREFIGHTER HAT INDICATOR","notUsed":false},{"id":"o44","idx":44,"label":"SHUNT TRIP ELEVATOR POWER","notUsed":false},{"id":"o48","idx":48,"label":"ELEVATOR POWER SHUNT TRIP","notUsed":false},{"id":"o49","idx":49,"label":"RECALL ELEVATOR TO PRIMARY RECALL FLOOR","notUsed":false},{"id":"o50","idx":50,"label":"RECALL ELEVATOR TO ALTERNATE RECALL FLOOR","notUsed":false},{"id":"o51","idx":51,"label":"ACTIVATE FIREFIGHTERS HAT FLASH","notUsed":false},{"id":"o52","idx":52,"label":"RELEASE MAGNETICALLY HELD SMOKE DOORS","notUsed":false},{"id":"o53","idx":53,"label":"CLOSE ALL ASSOCIATED FIRE SMOKE DAMPERS","notUsed":false},{"id":"o54","idx":54,"label":"UNLOCK ACCESS CONTROLLED DOORS","notUsed":false},{"id":"o55","idx":55,"label":"SHUT DOWN BACKGROUND AUDIO","notUsed":false},{"id":"o56","idx":56,"label":"SHUT DOWN HVLS FANS","notUsed":false},{"id":"o57","idx":57,"label":"SHUT DOWN ASSOCIATED AIR HANDLING UNIT","notUsed":false},{"id":"o58","idx":58,"label":"ACTUATE FLOOR PRESSURIZATION","notUsed":false},{"id":"o59","idx":59,"label":"ACTUATE STAIRWELL PRESSURIZATION","notUsed":false},{"id":"o60","idx":60,"label":"ACTUATE SMOKE EXHAUST","notUsed":false}]},{"name":"MASS NOTIFICATION","items":[{"id":"o13","idx":13,"label":"ACTIVATE ASSOCIATED PAGING ZONE VISUAL NOTIFICATION STROBES","notUsed":false},{"id":"o14","idx":14,"label":"MANUAL BROADCAST TO VOICE ZONE - FSA BUILDING","notUsed":false},{"id":"o15","idx":15,"label":"MANUAL BROADCAST TO VOICE ZONE - SERVER ROOM","notUsed":false},{"id":"o16","idx":16,"label":"MANUAL BROADCAST TO VOICE - ROOF","notUsed":false},{"id":"o17","idx":17,"label":"MANUAL BROADCAST TO ALL VOICE EVAC ZONES","notUsed":false},{"id":"o18","idx":18,"label":"MANUAL BROADCAST TO VOICE - ELECTRICAL YARD BUILDINGS","notUsed":false},{"id":"o19","idx":19,"label":"MANUAL BROADCAST TO VOICE - MECHANICAL YARD BUILDINGS","notUsed":false},{"id":"o20","idx":20,"label":"SWITCH TO BACKUP AMPLIFIER","notUsed":false},{"id":"o21","idx":21,"label":"SWITCH TO BACKUP TONE GENERATOR","notUsed":false}]}],"matrix":{"i1":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i69":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i70":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i71":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i72":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i73":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i74":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i62":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i63":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i64":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i65":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i66":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i67":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i68":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true,"o9":true},"i10":{"o0":true,"o4":true,"o5":true,"o9":true,"o10":true,"o46":true,"o29":true},"i11":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i14":{"o1":true,"o4":true,"o5":true,"o29":true,"o11":true},"i15":{"o1":true,"o4":true,"o5":true,"o29":true,"o11":true},"i16":{"o1":true,"o4":true,"o5":true,"o11":true},"i80":{"o1":true,"o4":true,"o5":true,"o11":true},"i81":{"o1":true,"o4":true,"o5":true,"o11":true},"i82":{"o1":true,"o4":true,"o5":true,"o11":true},"i83":{"o1":true,"o4":true,"o5":true,"o11":true},"i84":{"o1":true,"o4":true,"o5":true,"o11":true},"i85":{"o1":true,"o4":true,"o5":true,"o11":true},"i33":{"o1":true,"o4":true,"o5":true,"o11":true},"i34":{"o1":true,"o4":true,"o5":true,"o11":true},"i35":{"o1":true,"o4":true,"o5":true,"o11":true},"i36":{"o1":true,"o4":true,"o5":true,"o11":true},"i37":{"o1":true,"o4":true,"o5":true,"o11":true},"i38":{"o1":true,"o4":true,"o5":true,"o11":true},"i17":{"o1":true,"o4":true,"o5":true,"o11":true},"i18":{"o1":true,"o4":true,"o5":true,"o11":true},"i41":{"o2":true,"o4":true,"o5":true,"o12":true},"i75":{"o2":true,"o4":true,"o5":true,"o12":true},"i76":{"o2":true,"o4":true,"o5":true,"o12":true},"i77":{"o2":true,"o4":true,"o5":true,"o12":true},"i78":{"o2":true,"o4":true,"o5":true,"o12":true},"i79":{"o2":true,"o4":true,"o5":true,"o12":true},"i42":{"o2":true,"o4":true,"o5":true,"o12":true},"i43":{"o2":true,"o4":true,"o5":true,"o12":true},"i44":{"o2":true,"o4":true,"o5":true,"o12":true},"i45":{"o2":true,"o4":true,"o5":true,"o12":true},"i46":{"o2":true,"o4":true,"o5":true,"o12":true},"i12":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i13":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true},"i24":{"o1":true,"o4":true,"o5":true,"o11":true},"i25":{"o1":true,"o4":true,"o5":true,"o11":true},"i26":{"o1":true,"o4":true,"o5":true,"o11":true},"i60":{"o1":true,"o4":true,"o5":true,"o11":true},"i61":{"o1":true,"o4":true,"o5":true,"o11":true},"i2":{"o0":true,"o4":true,"o5":true,"o10":true,"o46":true,"o29":true}}};
 
 /* ============================= STATE ============================= */
 let state = null;          // {inputCategories, outputCategories, matrix}
@@ -1320,10 +1326,26 @@ function renderMatrixPreview(){
   const flatCols = [];
   outCats.forEach(c=>c.items.forEach(it=>flatCols.push(it)));
 
+  // ---- 45-degree diagonal fan header sizing (mirrors the PDF/DXF exports' fanH band) ----
+  // Computed up front (rather than later, where the fan band itself gets sized) because the
+  // category-label section below needs it too: the PDF/DXF exports effectively give their LAST
+  // output category this same fanH as extra width past the real data grid — the diagonal fan's
+  // own margin — before ever falling back to a forced single-line "spill". This preview used to
+  // skip that bonus entirely and go straight to wrapLabel() against the category's bare column
+  // width, which made a narrow trailing category (e.g. one with a single real column, after a
+  // wiring change that leaves it with a long name and little real estate) hit the ">2 lines"
+  // spill threshold far more readily than the real exports ever would for the same data — that
+  // mismatch is what produced a spill box wildly out of proportion to its column (a long label's
+  // full width reserved as a blank rectangle stretching the full height of the table).
+  const fanFont = '600 10px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
+  const S45 = Math.SQRT1_2;
+  const maxHeaderW = flatCols.length ? Math.max(...flatCols.map(it=>measureTextWidth(it.label, fanFont))) : 0;
+  const fanH = Math.min(260, Math.max(50, (maxHeaderW + 10) * S45));
+
   let html = '<table class="gridtable"><thead>';
   // row 1: corner + SYSTEM OUTPUTS title
   html += '<tr>';
-  html += `<th class="corner topleftTitle" rowspan="4" colspan="2"></th>`;
+  html += `<th class="corner topleftTitle" rowspan="4" colspan="2">SYSTEM INPUTS</th>`;
   html += `<th class="outputsTitle" colspan="${totalCols}"><span class="stickyCenter">SYSTEM OUTPUTS</span></th>`;
   html += '</tr>';
   // row 2: output categories
@@ -1400,9 +1422,11 @@ function renderMatrixPreview(){
   fitOuter.appendChild(fitInner);
   host.innerHTML = '';
   host.appendChild(fitOuter);
-  // (the "SYSTEM INPUTS" title has no dedicated cell in this preview — the modal's own header
-  // bar text already names it — and the row-category grouping column that used to sit to its
-  // left is gone; see the row-building loop above.)
+  // "SYSTEM INPUTS" is drawn as real text inside the rowspan'd corner cell itself (th.topleftTitle),
+  // bottom-aligned so it sits as a thin horizontal band directly above row 1 — mirroring the PDF/DXF
+  // exports' own SYSTEM INPUTS band, which sits directly above the row list rather than centered
+  // across the whole header height. No separate overlay needed since the cell's text never affects
+  // column sizing (colspan spans the fixed rownum+rowlabel columns, not the data grid).
 
   // ---- category-header overlay labels ----
   // Each th.colcat was rendered empty on purpose (see above). Now that the table has real layout
@@ -1414,18 +1438,34 @@ function renderMatrixPreview(){
   // feed back into column sizing.
   const catFont = '700 10.5px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
   const measureCat = s => measureTextWidth(s, catFont);
+  const lastIdx = outCats.length - 1;
+  // Three-tier fit for the LAST category only (every other category is strictly bounded by its
+  // own real columns, unchanged): (1) try the bare column width first, same as always — most
+  // categories fit in <=2 lines there and get no extra margin at all, identical to before this
+  // fix; (2) if that needs more than 2 lines, retry with a fanH-sized bonus added — the same
+  // margin the PDF/DXF exports effectively already give their last category (their outer frame
+  // always extends at least fanH past the real grid) — before this fix, this preview skipped
+  // straight from (1) to the old (3), which is what let a single-real-column trailing category
+  // with a long name (e.g. after a wiring change leaves it with only one used output) blow up
+  // into a spill box sized to fit the ENTIRE label, stretched the full height of the table; (3)
+  // only if even the fanH bonus isn't enough does it fall back to one unwrapped line with the
+  // margin grown to fit the full label — same reasoning as wrapLabel()'s own shrink-vs-hyphenate
+  // fallback: reach for the smallest accommodation that works before the drastic one.
+  let marginW = 0, lastSpills = false;
   const catLines = outCats.map((c,ci)=>{
     const th = host.querySelector(`th.colcat[data-catidx="${ci}"]`);
     const w = th ? th.getBoundingClientRect().width : 0;
-    return wrapLabel(c.name, measureCat, Math.max(10, w - 10));
+    if(ci !== lastIdx) return wrapLabel(c.name, measureCat, Math.max(10, w - 10));
+    let lines = wrapLabel(c.name, measureCat, Math.max(10, w - 10));
+    if(lines.length <= 2) return lines;
+    marginW = fanH;
+    lines = wrapLabel(c.name, measureCat, Math.max(10, w + fanH - 10));
+    if(lines.length <= 2) return lines;
+    lastSpills = true;
+    const labelWidth = measureCat(c.name);
+    marginW = Math.max(marginW, Math.ceil(labelWidth + 40 - w));
+    return [c.name];
   });
-  // Mirror the PDF/DXF exporters' one exception to "always wrap": the LAST category, if it would
-  // need more than 2 lines, is instead drawn as a single line that's allowed to spill rightward
-  // past its own band — there's nothing after the last category to collide with (blank scroll area
-  // only), same reasoning the exporters use for extending their outer frame past the real grid.
-  const lastIdx = outCats.length - 1;
-  const lastSpills = lastIdx >= 0 && catLines[lastIdx].length > 2;
-  if(lastSpills) catLines[lastIdx] = [outCats[lastIdx].name];
   const lineH = 13; // px per wrapped line, matches .colcatOverlay's line-height at font-size 10.5px
   const maxLines = Math.max(1, ...catLines.map(ls=>ls.length));
   const colcatH = Math.max(22, maxLines*lineH + 10);
@@ -1436,30 +1476,34 @@ function renderMatrixPreview(){
   // Row heights just changed (taller categories push row 3's rotated headers further down), so
   // re-measure every rect fresh rather than reusing anything captured before the height update.
   const hostRect = host.getBoundingClientRect();
-  // When the last category spills, draw a bordered box to its right — running the full height of
-  // the header rows AND every data row below, same as the PDF/DXF exports' outer-frame extension
-  // (built up over several earlier revisions: the frame itself, closing its notch at the category
-  // band, and the divider between the real last column and the blank margin) — rather than leaving
-  // the spilled label floating with no border around it at all.
-  let spillBoxW = 0;
-  if(lastSpills){
+  // The reserved margin (when non-zero) is drawn as TWO stacked pieces rather than one, matching
+  // how the PDF/DXF exports treat this same space differently at different heights: across the
+  // category-header row it's filled the same gray as every other th.colcat cell so it reads as
+  // one continuous header box (not a stray rectangle floating next to it), while alongside the
+  // data rows below it stays blank, matching the exports' plain unruled margin there.
+  if(lastIdx >= 0 && marginW > 0){
     const th = host.querySelector(`th.colcat[data-catidx="${lastIdx}"]`);
     const table = host.querySelector('table.gridtable');
     if(th && table){
       const r = th.getBoundingClientRect();
       const tableRect = table.getBoundingClientRect();
-      const labelWidth = measureCat(outCats[lastIdx].name);
-      spillBoxW = Math.max(20, Math.ceil(labelWidth + 40 - r.width));
       const left = r.right - hostRect.left + host.scrollLeft;
       const top = r.top - hostRect.top + host.scrollTop;
-      const height = (tableRect.bottom - hostRect.top + host.scrollTop) - top;
+      const fullHeight = (tableRect.bottom - hostRect.top + host.scrollTop) - top;
       const box = document.createElement('div');
       box.className = 'colcatSpillBox';
       box.style.left = left + 'px';
       box.style.top = top + 'px';
-      box.style.width = spillBoxW + 'px';
-      box.style.height = height + 'px';
+      box.style.width = marginW + 'px';
+      box.style.height = fullHeight + 'px';
       fitInner.appendChild(box);
+      const headerExt = document.createElement('div');
+      headerExt.className = 'colcatSpillBoxHeader';
+      headerExt.style.left = left + 'px';
+      headerExt.style.top = top + 'px';
+      headerExt.style.width = marginW + 'px';
+      headerExt.style.height = r.height + 'px';
+      fitInner.appendChild(headerExt);
     }
   }
   outCats.forEach((c,ci)=>{
@@ -1473,9 +1517,10 @@ function renderMatrixPreview(){
     ov.style.top = top + 'px';
     ov.style.height = r.height + 'px';
     ov.style.left = left + 'px';
-    // Centered across the real band PLUS the spill box, matching how the PDF/DXF exports center
-    // a spilled label across its extended frame rather than left-aligning it against the real edge.
-    ov.style.width = (ci === lastIdx && lastSpills ? r.width + spillBoxW : r.width) + 'px';
+    // Centered across the real band PLUS the reserved margin, matching how the PDF/DXF exports
+    // center a spilled label across its extended frame rather than left-aligning it against the
+    // real edge.
+    ov.style.width = (ci === lastIdx ? r.width + marginW : r.width) + 'px';
     ov.innerHTML = catLines[ci].map(escapeHtml).join('<br>');
     fitInner.appendChild(ov);
   });
@@ -1483,11 +1528,8 @@ function renderMatrixPreview(){
   // ---- 45-degree diagonal fan header (mirrors the PDF/DXF exports' fanH band) ----
   // Size the band tall enough for the longest output label to fit along its diagonal run, using
   // the same (label width + pad) * sin45 relationship the exporters use for fanH, in on-screen
-  // pixels instead of inches.
-  const fanFont = '600 10px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif';
-  const S45 = Math.SQRT1_2;
-  const maxHeaderW = flatCols.length ? Math.max(...flatCols.map(it=>measureTextWidth(it.label, fanFont))) : 0;
-  const fanH = Math.min(260, Math.max(50, (maxHeaderW + 10) * S45));
+  // pixels instead of inches. (fanH itself is computed earlier, right after flatCols — the
+  // category-label section above needs the same value.)
   host.querySelectorAll('th.colfan').forEach(th=>{ th.style.height = fanH + 'px'; });
 
   // Re-measure fresh: setting the fan band's height (and any category-row height change above)
